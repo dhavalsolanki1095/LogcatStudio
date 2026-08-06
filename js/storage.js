@@ -41,12 +41,15 @@ const LSStorage = (() => {
 
   function addHistory(entry) {
     const list = getHistory();
+    const fullText = String(entry.text || '');
+    // Cap stored payload — large .logcat exports were freezing Chrome via localStorage
+    const MAX_STORE = 80000;
     const item = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       preview: LSUtils.truncate(String(entry.preview || entry.text || ''), 80),
-      text: String(entry.text || ''),
+      text: fullText.length > MAX_STORE ? fullText.slice(0, MAX_STORE) : fullText,
       type: entry.type || 'json',
-      size: entry.size || LSUtils.formatBytes(new Blob([entry.text || '']).size),
+      size: entry.size || LSUtils.formatBytes(new Blob([fullText]).size),
       at: entry.at || LSUtils.nowIso()
     };
 

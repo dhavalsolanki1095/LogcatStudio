@@ -273,12 +273,21 @@ const LSParser = (() => {
     const text = String(raw || '').trim();
     if (!text) return 'empty';
 
+    // Android Studio .logcat JSON export — check BEFORE full JSON.parse
+    // (these files are valid JSON and can be multi‑MB; parsing for type kills the UI)
+    if (looksLikeStudioLogcatExport(text)) return 'logcat';
+
     if (
       (text.startsWith('{') && text.endsWith('}')) ||
       (text.startsWith('[') && text.endsWith(']'))
     ) {
-      const probe = LSUtils.safeJsonParse(text);
-      if (probe.ok) return 'json';
+      // Only probe-parse small payloads; large ones are treated as JSON by shape
+      if (text.length <= 256 * 1024) {
+        const probe = LSUtils.safeJsonParse(text);
+        if (probe.ok) return 'json';
+      } else {
+        return 'json';
+      }
     }
 
     if (
@@ -297,6 +306,72 @@ const LSParser = (() => {
 
     if (/[{[]/.test(text) && /[}\]]/.test(text)) return 'mixed';
     return 'text';
+  }
+
+  /** Cheap check — does not parse the full file */
+  function looksLikeStudioLogcatExport(text) {
+    const t = String(text || '');
+    if (!t.startsWith('{')) return false;
+    const head = t.slice(0, 4000);
+    return head.includes('"logcatMessages"');
+  }
+
+  function decodeLogcatEscapes(s) {
+    return String(s || '')
+      .replace(/\\u003[dD]/g, '=')
+      .replace(/\\u0026/g, '&')
+      .replace(/\\u003c/gi, '<')
+      .replace(/\\u003e/gi, '>')
+      .replace(/&laquo;/g, '«')
+      .replace(/&raquo;/g, '»');
+  }
+
+  /**
+   * Expand Android Studio .logcat JSON export → plain message lines (one parse).
+   * Returns null if not a studio export.
+   */
+  function expandStudioLogcatExport(raw) {
+    const text = String(raw || '');
+    if (!looksLikeStudioLogcatExport(text)) return null;
+    try {
+      const parsed = JSON.parse(text);
+      if (!parsed || !Array.isArray(parsed.logcatMessages)) return null;
+      const lines = [];
+      for (let i = 0; i < parsed.logcatMessages.length; i += 1) {
+        const m = parsed.logcatMessages[i];
+        const msg = decodeLogcatEscapes((m && m.message) || '').trim();
+        if (msg) lines.push(msg);
+      }
+      return {
+        text: lines.join('\n'),
+        messageCount: lines.length,
+        originalSize: text.length
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Normalize input before process/API extract (expand studio export once).
+   */
+  function prepareInput(raw) {
+    const original = String(raw || '');
+    const expanded = expandStudioLogcatExport(original);
+    if (expanded) {
+      return {
+        workText: expanded.text,
+        studioExport: true,
+        messageCount: expanded.messageCount,
+        originalSize: expanded.originalSize
+      };
+    }
+    return {
+      workText: original,
+      studioExport: false,
+      messageCount: 0,
+      originalSize: original.length
+    };
   }
 
   function isHttpNoise(msg) {
@@ -391,6 +466,8 @@ const LSParser = (() => {
     if (!t.startsWith('{') && !t.startsWith('[')) return false;
     const bal = jsonBalance(t);
     if (!bal.balanced) return false;
+    // Avoid re-parsing multi‑MB buffers on every fragment check
+    if (t.length > 200000) return true;
     return LSUtils.safeJsonParse(t).ok;
   }
 
@@ -624,10 +701,15 @@ const LSParser = (() => {
   }
 
   function process(raw) {
-    const type = detectInputType(raw);
+    // Studio .logcat export → message lines first (never treat whole file as one JSON)
+    let source = String(raw || '');
+    const expanded = expandStudioLogcatExport(source);
+    if (expanded) source = expanded.text;
+
+    const type = detectInputType(source);
 
     // 1) Merge split JSON lines (all AS format combos + message-only OkHttp paste)
-    const mergedOne = concatenateJsonLines(raw);
+    const mergedOne = concatenateJsonLines(source);
     let blocks = [];
     if (mergedOne && isCompleteJson(mergedOne)) {
       blocks = [{ raw: mergedOne }];
@@ -637,13 +719,13 @@ const LSParser = (() => {
 
     // 2) Fallback: rebuild from log lines
     if (!blocks.length) {
-      const mergedBlocks = rebuildFromLogcat(raw);
+      const mergedBlocks = rebuildFromLogcat(source);
       blocks = mergedBlocks.map((r) => ({ raw: r }));
     }
 
     // 3) Fallback: strip all lines and concatenate JSON parts only
     if (!blocks.length) {
-      const parts = String(raw || '')
+      const parts = String(source || '')
         .split(/\r\n|\r|\n/)
         .map(stripLogPrefix)
         .map((m) => m.trim())
@@ -662,7 +744,7 @@ const LSParser = (() => {
     }
 
     if (blocks.length === 0) {
-      const trimmed = String(raw || '').trim();
+      const trimmed = String(source || '').trim();
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         blocks = [{ raw: trimmed }];
       }
@@ -670,6 +752,10 @@ const LSParser = (() => {
 
     const enriched = blocks.map((b) => {
       const rawText = b.raw;
+      // Never accept the entire studio export / huge blob as a "JSON block"
+      if (rawText && rawText.length > 500000 && looksLikeStudioLogcatExport(rawText)) {
+        return null;
+      }
       const parsed = LSUtils.safeJsonParse(rawText);
       if (parsed.ok) {
         return { raw: rawText, value: parsed.value, valid: true };
@@ -690,12 +776,17 @@ const LSParser = (() => {
         valid: false,
         error: String(parsed.error && parsed.error.message)
       };
-    });
+    }).filter(Boolean);
 
     const seen = new Set();
     const unique = [];
     enriched.forEach((b) => {
-      const key = b.valid ? JSON.stringify(b.value) : b.raw;
+      let key;
+      if (b.valid && b.raw && b.raw.length > 100000) {
+        key = 'len:' + b.raw.length + ':' + b.raw.slice(0, 120) + ':' + b.raw.slice(-40);
+      } else {
+        key = b.valid ? JSON.stringify(b.value) : b.raw;
+      }
       if (seen.has(key)) return;
       seen.add(key);
       unique.push(b);
@@ -714,7 +805,7 @@ const LSParser = (() => {
     const cleaned =
       primaryIndex >= 0 && unique[primaryIndex]
         ? unique[primaryIndex].raw
-        : mergedOne || cleanLogcat(raw);
+        : mergedOne || cleanLogcat(source);
 
     return {
       type,
@@ -768,6 +859,9 @@ const LSParser = (() => {
     parseLogLine,
     cleanLogcat,
     detectInputType,
+    looksLikeStudioLogcatExport,
+    expandStudioLogcatExport,
+    prepareInput,
     extractJsonBlocks,
     mergeSplitJsonLines,
     concatenateJsonLines,

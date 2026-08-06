@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#1e1e1e" />
   <title>Logcat Studio</title>
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260806m" />
   <link rel="stylesheet" href="css/theme.css" />
 </head>
 <body class="theme-dark">
@@ -59,8 +59,8 @@
               <span class="btn-icon">📑</span><span class="btn-label">Copy</span><span class="btn-caret">▾</span>
             </button>
             <div class="toolbar-menu" role="menu" hidden>
-              <button type="button" class="toolbar-menu-item" id="btn-copy-formatted" role="menuitem">Copy formatted</button>
-              <button type="button" class="toolbar-menu-item" id="btn-copy-minified" role="menuitem">Copy minified</button>
+              <button type="button" class="toolbar-menu-item" id="btn-copy-formatted" role="menuitem">Copy formatted (selected)</button>
+              <button type="button" class="toolbar-menu-item" id="btn-copy-minified" role="menuitem">Copy minified (selected)</button>
               <button type="button" class="toolbar-menu-item" id="btn-copy-path" role="menuitem">Copy JSON path</button>
             </div>
           </div>
@@ -69,8 +69,8 @@
               <span class="btn-icon">💾</span><span class="btn-label">Download</span><span class="btn-caret">▾</span>
             </button>
             <div class="toolbar-menu" role="menu" hidden>
-              <button type="button" class="toolbar-menu-item" id="btn-download-json" role="menuitem">Download .json</button>
-              <button type="button" class="toolbar-menu-item" id="btn-download-txt" role="menuitem">Download .txt</button>
+              <button type="button" class="toolbar-menu-item" id="btn-download-json" role="menuitem">Download selected .json</button>
+              <button type="button" class="toolbar-menu-item" id="btn-download-txt" role="menuitem">Download selected .txt</button>
             </div>
           </div>
         </div>
@@ -84,6 +84,7 @@
               <button type="button" class="toolbar-menu-item" id="btn-sample-logcat" role="menuitem">Logcat JSON</button>
               <button type="button" class="toolbar-menu-item" id="btn-sample-formats" role="menuitem">All Logcat formats</button>
               <button type="button" class="toolbar-menu-item" id="btn-sample-message-only" role="menuitem">Message-only OkHttp</button>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-api" role="menuitem">API Calls (OkHttp)</button>
               <button type="button" class="toolbar-menu-item" id="btn-sample-request" role="menuitem">OkHttp Request</button>
               <button type="button" class="toolbar-menu-item" id="btn-sample-response" role="menuitem">Retrofit Response</button>
               <button type="button" class="toolbar-menu-item" id="btn-sample-json" role="menuitem">Pretty JSON</button>
@@ -123,6 +124,7 @@
         <div class="pane-header">
           <div class="pane-header-title">Input · Logcat / JSON</div>
           <div class="pane-header-actions">
+            <button type="button" class="pane-header-btn" id="btn-open-pane" title="Open Logcat / JSON file">Open file</button>
             <button type="button" class="pane-header-btn" id="btn-process-pane" title="Process">Process</button>
           </div>
         </div>
@@ -133,12 +135,12 @@
             spellcheck="false"
             autocomplete="off"
             autocapitalize="off"
-            placeholder="Paste Android Studio Logcat, OkHttp, Retrofit, Timber, or raw JSON here…
+            placeholder="Paste Android Studio Logcat, or drag & drop a .logcat / .log / .txt / .json file here…
 
-Example:
-11:00:14.234 27217-3814 ApiLogger D {
-11:00:14.235 27217-3814 ApiLogger D   &quot;name&quot;: &quot;Dhaval&quot;
-11:00:14.236 27217-3814 ApiLogger D }"
+Supports:
+• Android Studio .logcat export
+• OkHttp / Retrofit request & response logs
+• Raw JSON"
           ></textarea>
         </div>
       </section>
@@ -150,6 +152,7 @@ Example:
           <div class="output-tabs" role="tablist">
             <button type="button" class="output-tab active" data-tab="raw" role="tab">Raw</button>
             <button type="button" class="output-tab" data-tab="tree" role="tab">Tree</button>
+            <button type="button" class="output-tab" data-tab="api" role="tab">API Calls</button>
             <button type="button" class="output-tab" data-tab="compare" role="tab">Compare</button>
             <button type="button" class="output-tab" data-tab="stats" role="tab">Statistics</button>
           </div>
@@ -166,44 +169,70 @@ Example:
         <div id="validation-banner" role="status"></div>
 
         <div class="pane-body" style="position:relative">
-          <!-- Raw -->
-          <div id="tab-raw" class="tab-panel active" role="tabpanel">
-            <div class="json-editor-stack">
-              <pre id="raw-highlight" class="json-highlight" aria-hidden="true"></pre>
-              <textarea id="raw-output" class="editor-area" spellcheck="false" autocomplete="off" readonly placeholder="Formatted JSON appears here…"></textarea>
-            </div>
-          </div>
-
-          <!-- Tree -->
-          <div id="tab-tree" class="tab-panel" role="tabpanel">
-            <div id="tree-container"></div>
-            <div id="path-bar">
-              <span class="path-label">Path</span>
-              <span id="json-path" title="Click to copy">$</span>
-            </div>
-          </div>
-
-          <!-- Compare -->
-          <div id="tab-compare" class="tab-panel" role="tabpanel">
-            <div style="display:flex;gap:6px;padding:6px 10px;background:var(--ls-bg-elevated);border-bottom:1px solid var(--ls-border);flex-shrink:0">
-              <button type="button" class="pane-header-btn" id="btn-compare-use-current">Use current as Left</button>
-              <button type="button" class="pane-header-btn" id="btn-compare-run" style="background:var(--ls-accent);color:#fff">Compare</button>
-            </div>
-            <div id="compare-container">
-              <div class="compare-pane">
-                <div class="compare-pane-header"><span>Left (A)</span></div>
-                <textarea id="compare-left" class="compare-editor" spellcheck="false" placeholder="JSON A…"></textarea>
+          <!-- Shared shell: one vertical sidebar for Raw / Tree / Compare / API Calls -->
+          <div id="json-shell" class="json-shell active">
+            <aside id="side-nav" class="side-nav" aria-label="Side navigation">
+              <div id="json-block-list" class="side-nav-panel">
+                <div class="raw-list-header">JSON blocks</div>
+                <div id="json-block-items">
+                  <div class="api-list-empty">No JSON found. Paste Logcat or JSON to begin.</div>
+                </div>
               </div>
-              <div class="compare-pane">
-                <div class="compare-pane-header"><span>Right (B)</span></div>
-                <textarea id="compare-right" class="compare-editor" spellcheck="false" placeholder="JSON B…"></textarea>
+              <div id="api-list" class="side-nav-panel" hidden>
+                <div class="raw-list-header">API calls</div>
+                <div id="api-list-items">
+                  <div class="api-list-empty">No API calls found. Paste OkHttp / Logcat / .logcat export.</div>
+                </div>
               </div>
-            </div>
-            <div id="compare-diff"></div>
-            <div class="compare-legend">
-              <span class="legend-item"><span class="legend-swatch added"></span> Added</span>
-              <span class="legend-item"><span class="legend-swatch removed"></span> Removed</span>
-              <span class="legend-item"><span class="legend-swatch changed"></span> Changed</span>
+            </aside>
+            <div class="json-shell-main">
+              <!-- Raw -->
+              <div id="tab-raw" class="tab-panel active" role="tabpanel">
+                <div class="json-editor-stack">
+                  <pre id="raw-highlight" class="json-highlight" aria-hidden="true"></pre>
+                  <textarea id="raw-output" class="editor-area" spellcheck="false" autocomplete="off" readonly placeholder="Formatted JSON appears here…"></textarea>
+                </div>
+              </div>
+
+              <!-- Tree -->
+              <div id="tab-tree" class="tab-panel" role="tabpanel">
+                <div id="tree-container"></div>
+                <div id="path-bar">
+                  <span class="path-label">Path</span>
+                  <span id="json-path" title="Click to copy">$</span>
+                </div>
+              </div>
+
+              <!-- Compare -->
+              <div id="tab-compare" class="tab-panel" role="tabpanel">
+                <div style="display:flex;gap:6px;padding:6px 10px;background:var(--ls-bg-elevated);border-bottom:1px solid var(--ls-border);flex-shrink:0">
+                  <button type="button" class="pane-header-btn" id="btn-compare-use-current">Use current as Left</button>
+                  <button type="button" class="pane-header-btn" id="btn-compare-run" style="background:var(--ls-accent);color:#fff">Compare</button>
+                </div>
+                <div id="compare-container">
+                  <div class="compare-pane">
+                    <div class="compare-pane-header"><span>Left (A)</span></div>
+                    <textarea id="compare-left" class="compare-editor" spellcheck="false" placeholder="JSON A…"></textarea>
+                  </div>
+                  <div class="compare-pane">
+                    <div class="compare-pane-header"><span>Right (B)</span></div>
+                    <textarea id="compare-right" class="compare-editor" spellcheck="false" placeholder="JSON B…"></textarea>
+                  </div>
+                </div>
+                <div id="compare-diff"></div>
+                <div class="compare-legend">
+                  <span class="legend-item"><span class="legend-swatch added"></span> Added</span>
+                  <span class="legend-item"><span class="legend-swatch removed"></span> Removed</span>
+                  <span class="legend-item"><span class="legend-swatch changed"></span> Changed</span>
+                </div>
+              </div>
+
+              <!-- API Calls detail (list is in shared side-nav) -->
+              <div id="tab-api" class="tab-panel" role="tabpanel">
+                <section id="api-detail" aria-label="API call details">
+                  <div class="api-detail-empty">Select an API call to view request / response</div>
+                </section>
+              </div>
             </div>
           </div>
 
@@ -241,6 +270,10 @@ Example:
         <div class="status-item">
           <span class="label">Blocks</span>
           <span class="value" id="status-blocks">0</span>
+        </div>
+        <div class="status-item">
+          <span class="label">APIs</span>
+          <span class="value" id="status-apis">0</span>
         </div>
       </div>
       <div class="status-right">
@@ -280,22 +313,23 @@ Example:
 
   <div id="drop-overlay" aria-hidden="true">
     <div class="drop-icon">📂</div>
-    <div class="drop-text">Drop JSON or log file</div>
-    <div class="drop-hint">.json · .txt · Logcat dumps</div>
+    <div class="drop-text">Drop Logcat file to open</div>
+    <div class="drop-hint">.logcat · .log · .txt · .json</div>
   </div>
 
   <div id="toast-container" aria-live="polite"></div>
-  <input type="file" id="file-open-input" class="hidden-input" accept=".json,.txt,.log,.text,text/plain,application/json" />
+  <input type="file" id="file-open-input" class="hidden-input" accept=".json,.txt,.log,.logcat,.text,text/plain,application/json" />
 
   <script src="js/utils.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/parser.js?v=20260806c"></script>
+  <script src="js/storage.js?v=20260806n"></script>
+  <script src="js/parser.js?v=20260806n"></script>
+  <script src="js/api-extractor.js?v=20260806n"></script>
   <script src="js/formatter.js"></script>
   <script src="js/highlighter.js"></script>
   <script src="js/validator.js"></script>
   <script src="js/tree.js"></script>
   <script src="js/compare.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/ui.js?v=20260806n"></script>
+  <script src="js/app.js?v=20260806n"></script>
 </body>
 </html>

@@ -8,6 +8,8 @@ const LSApp = (() => {
     inputRaw: '',
     blocks: [],
     activeBlock: -1,
+    apiCalls: [],
+    activeApi: -1,
     formatted: '',
     value: null,
     indent: '2',
@@ -38,6 +40,7 @@ const LSApp = (() => {
     LSUI.setStatus({
       'status-type': state.inputType || '—',
       'status-blocks': state.blocks.length ? String(state.blocks.length) : '0',
+      'status-apis': state.apiCalls.length ? String(state.apiCalls.length) : '0',
       'status-size': text ? LSUtils.formatBytes(new Blob([text]).size) : '0 B',
       'status-lines': text ? String(LSUtils.countLines(text)) : '0',
       'status-path': LSTree.getSelectedPath() || '$'
@@ -86,9 +89,9 @@ const LSApp = (() => {
     state.receiptHtml = value != null ? LSParser.findReceiptHtml(value) : null;
     LSUI.setReceiptButtonVisible(!!state.receiptHtml);
 
-    // Seed compare left pane if empty
+    // Keep Compare left in sync with selected JSON block
     const left = document.getElementById('compare-left');
-    if (left && !left.value.trim() && text) {
+    if (left && text) {
       left.value = text;
     }
 
@@ -126,49 +129,321 @@ const LSApp = (() => {
     applyFormatted(text, value);
   }
 
-  function processInput(raw, options) {
-    const opts = options || {};
-    const text = raw == null ? (inputEl() && inputEl().value) : raw;
-    state.inputRaw = text || '';
+  function bindApiDetailActions(call) {
+    document.getElementById('btn-api-copy-full')?.addEventListener('click', async () => {
+      const text =
+        typeof LSApiExtractor !== 'undefined'
+          ? LSApiExtractor.formatFullDetails(call)
+          : '';
+      const ok = await LSUtils.copyText(text);
+      LSUtils.toast(ok ? 'Full API details copied — ready to share' : 'Copy failed', ok ? 'success' : 'error');
+    });
+    document.getElementById('btn-api-copy-url')?.addEventListener('click', async () => {
+      const ok = await LSUtils.copyText(call.url || '');
+      LSUtils.toast(ok ? 'URL copied' : 'Copy failed', ok ? 'success' : 'error');
+    });
+    document.getElementById('btn-api-copy-request')?.addEventListener('click', async () => {
+      const text =
+        call.request.bodyValid && call.request.body != null
+          ? LSFormatter.beautify(call.request.body, getIndent())
+          : call.request.bodyRaw || '';
+      const ok = await LSUtils.copyText(text);
+      LSUtils.toast(ok ? 'Request body copied' : 'Copy failed', ok ? 'success' : 'error');
+    });
+    document.getElementById('btn-api-copy-response')?.addEventListener('click', async () => {
+      const text =
+        call.response.bodyValid && call.response.body != null
+          ? LSFormatter.beautify(call.response.body, getIndent())
+          : call.response.bodyRaw || '';
+      const ok = await LSUtils.copyText(text);
+      LSUtils.toast(ok ? 'Response body copied' : 'Copy failed', ok ? 'success' : 'error');
+    });
+    document.getElementById('btn-api-use-response-json')?.addEventListener('click', () => {
+      if (call.response.bodyValid && call.response.body != null) {
+        try {
+          const text = LSFormatter.beautify(call.response.body, getIndent());
+          applyFormatted(text, call.response.body);
+          LSUI.switchTab('raw');
+          LSUtils.toast('Response opened in Raw', 'success');
+        } catch (_) {
+          LSUtils.toast('Could not open response JSON', 'error');
+        }
+      } else if (call.response.bodyRaw) {
+        applyFormatted(call.response.bodyRaw, null);
+        LSUI.switchTab('raw');
+      } else {
+        LSUtils.toast('No response body', 'warn');
+      }
+    });
+  }
 
-    if (inputEl() && raw != null) {
-      inputEl().value = text;
+  function selectApiCall(index) {
+    if (index < 0 || index >= state.apiCalls.length) return;
+    state.activeApi = index;
+    LSUI.renderApiCalls(state.apiCalls, index, selectApiCall);
+    bindApiDetailActions(state.apiCalls[index]);
+  }
+
+  function refreshApiPanel() {
+    if (!state.apiCalls.length) {
+      state.activeApi = -1;
+      LSUI.renderApiCalls([], -1, selectApiCall);
+      return;
+    }
+    const idx = state.activeApi >= 0 ? state.activeApi : 0;
+    selectApiCall(idx);
+  }
+
+  function buildRawBlocks(parserBlocks, apiCalls) {
+    const fromParser = Array.isArray(parserBlocks) ? parserBlocks.slice() : [];
+    const calls = Array.isArray(apiCalls) ? apiCalls : [];
+    const seen = new Set();
+    const out = [];
+
+    function add(block) {
+      if (!block) return;
+      if (block.valid && block.value != null) {
+        try {
+          let key;
+          if (block.raw && block.raw.length > 80000) {
+            key =
+              'L:' +
+              block.raw.length +
+              ':' +
+              block.raw.slice(0, 80) +
+              ':' +
+              block.raw.slice(-40);
+          } else {
+            key = JSON.stringify(block.value);
+          }
+          if (seen.has(key)) return;
+          seen.add(key);
+        } catch (_) {
+          /* still add */
+        }
+      }
+      out.push(block);
     }
 
-    if (!String(text || '').trim()) {
+    calls.forEach((call, i) => {
+      const pathShort = String(call.path || call.url || '').split('?')[0];
+      [
+        { part: call.response, kind: 'Response' },
+        { part: call.request, kind: 'Request' }
+      ].forEach(({ part, kind }) => {
+        if (!part || !part.bodyValid || part.body == null) return;
+        // Keep compact raw here — beautify on select (avoids freezing on many large bodies)
+        let rawText = part.bodyRaw || '';
+        if (!rawText && part.body != null) {
+          try {
+            rawText = JSON.stringify(part.body);
+          } catch (_) {
+            rawText = String(part.body);
+          }
+        }
+        const sizeBytes =
+          rawText
+            ? new Blob([rawText]).size
+            : part.bodyBytes != null
+              ? part.bodyBytes
+              : null;
+        add({
+          raw: rawText,
+          value: part.body,
+          valid: true,
+          source: 'api',
+          apiIndex: i,
+          method: call.method || '?',
+          path: pathShort || call.url || '',
+          status: kind === 'Response' ? call.status : null,
+          durationMs: kind === 'Response' ? call.durationMs : null,
+          bodyBytes: sizeBytes,
+          kind,
+          label: `${call.method || '?'} ${pathShort} · ${kind}${
+            call.status != null && kind === 'Response' ? ' · ' + call.status : ''
+          }`
+        });
+      });
+    });
+
+    fromParser.forEach(add);
+    return out.length ? out : fromParser;
+  }
+
+  function processInput(raw, options) {
+    const opts = options || {};
+    let incoming;
+    if (raw != null) {
+      incoming = raw;
+    } else {
+      const elVal = inputEl() ? inputEl().value : '';
+      // Prefer full in-memory text when the input pane is showing a truncated preview
+      if (
+        state.inputRaw &&
+        elVal &&
+        (elVal.includes('… [truncated') || elVal.includes('full export JSON is not shown'))
+      ) {
+        incoming = state.inputRaw;
+      } else {
+        incoming = elVal;
+      }
+    }
+
+    if (!String(incoming || '').trim()) {
       state.blocks = [];
       state.activeBlock = -1;
+      state.apiCalls = [];
+      state.activeApi = -1;
       state.inputType = 'empty';
+      state.inputRaw = '';
+      if (inputEl() && raw != null) inputEl().value = '';
       applyFormatted('', null);
       LSUI.renderBlockChips([], -1, selectBlock);
+      LSUI.renderApiCalls([], -1, selectApiCall);
       LSUI.setValidationBanner({ skip: true });
       updateStatusBar();
       return;
     }
 
-    state.processing = true;
-    const result = LSParser.process(text);
-    state.inputType = result.type;
-    state.blocks = result.blocks;
+    // Expand Android Studio .logcat once (avoids treating multi‑MB export as one JSON)
+    const prepared =
+      typeof LSParser.prepareInput === 'function'
+        ? LSParser.prepareInput(incoming)
+        : { workText: String(incoming), studioExport: false, messageCount: 0, originalSize: String(incoming).length };
 
-    if (!opts.skipHistory && result.blocks.length) {
-      const previewSource = result.blocks[result.primaryIndex >= 0 ? result.primaryIndex : 0];
-      LSStorage.addHistory({
-        text: String(text),
-        preview: previewSource ? previewSource.raw : text,
-        type: result.type
-      });
+    const text = prepared.workText;
+    state.inputRaw = text || '';
+
+    // Never dump multi‑MB studio JSON into the textarea (Chrome hangs)
+    if (inputEl() && (raw != null || prepared.studioExport)) {
+      const INPUT_DISPLAY_MAX = 120000;
+      if (prepared.studioExport) {
+        const header =
+          `[Android Studio .logcat — ${prepared.messageCount} messages · ${LSUtils.formatBytes(
+            prepared.originalSize
+          )}]\n` +
+          `Message lines loaded for processing (full export JSON is not shown).\n\n`;
+        const body =
+          text.length > INPUT_DISPLAY_MAX
+            ? text.slice(0, INPUT_DISPLAY_MAX) + '\n\n… [truncated in input pane — full data still processed]'
+            : text;
+        inputEl().value = header + body;
+      } else if (text.length > INPUT_DISPLAY_MAX) {
+        inputEl().value =
+          text.slice(0, INPUT_DISPLAY_MAX) +
+          `\n\n… [truncated in input pane — ${LSUtils.formatBytes(text.length)} total still processed]`;
+      } else if (raw != null) {
+        inputEl().value = text;
+      }
     }
 
-    if (result.primaryIndex >= 0) {
-      selectBlock(result.primaryIndex);
+    const runHeavy = () => {
+      state.processing = true;
+      try {
+        const largeStudio =
+          prepared.studioExport &&
+          (prepared.messageCount > 1500 || text.length > 400000);
+
+        let result;
+        if (largeStudio) {
+          // Fast path: skip full JSON-line merge (was hanging Chrome on multi‑MB exports).
+          // API Calls + their JSON bodies are extracted instead.
+          result = {
+            type: 'logcat',
+            blocks: [],
+            primaryIndex: -1,
+            cleaned: ''
+          };
+        } else {
+          result = LSParser.process(text);
+        }
+        state.inputType = prepared.studioExport ? 'logcat' : result.type;
+
+        try {
+          state.apiCalls =
+            typeof LSApiExtractor !== 'undefined' ? LSApiExtractor.extract(text) : [];
+        } catch (_) {
+          state.apiCalls = [];
+        }
+        state.activeApi = state.apiCalls.length ? 0 : -1;
+
+        state.blocks = buildRawBlocks(result.blocks, state.apiCalls);
+        let primaryIndex = result.primaryIndex;
+        if (primaryIndex < 0 && state.blocks.length) primaryIndex = 0;
+        if (state.apiCalls.length && state.blocks.length && state.blocks[0].source === 'api') {
+          primaryIndex = 0;
+        }
+
+        refreshApiPanel();
+
+        if (!opts.skipHistory && (state.blocks.length || state.apiCalls.length)) {
+          const previewSource = state.blocks[primaryIndex >= 0 ? primaryIndex : 0];
+          const apiPreview =
+            state.apiCalls[0] && typeof LSApiExtractor !== 'undefined'
+              ? LSApiExtractor.summarize(state.apiCalls[0])
+              : '';
+          const histText = text.length > 80000 ? text.slice(0, 80000) : text;
+          LSStorage.addHistory({
+            text: histText,
+            preview: previewSource ? previewSource.raw : apiPreview || text,
+            type: state.inputType
+          });
+        }
+
+        if (primaryIndex >= 0 && state.blocks.length) {
+          selectBlock(primaryIndex);
+        } else {
+          LSUI.renderBlockChips([], -1, selectBlock);
+          applyFormatted('', null);
+          if (state.apiCalls.length) {
+            LSUI.switchTab('api');
+            if (!opts.fromFile) {
+              LSUtils.toast(`Found ${state.apiCalls.length} API call(s)`, 'success');
+            }
+          } else if (!opts.fromFile) {
+            LSUtils.toast('No JSON or API calls found in input', 'warn');
+          }
+        }
+
+        if (prepared.studioExport && state.apiCalls.length) {
+          LSUI.switchTab('api');
+        }
+
+        if (opts.fromFile) {
+          const name = opts.fromFile;
+          if (state.apiCalls.length) {
+            LSUI.switchTab('api');
+            LSUtils.toast(`Opened ${name} · ${state.apiCalls.length} API call(s)`, 'success');
+          } else if (state.blocks.length) {
+            LSUI.switchTab('raw');
+            LSUtils.toast(`Opened ${name} · ${state.blocks.length} JSON`, 'success');
+          } else {
+            LSUtils.toast(`Opened ${name} — no API/JSON found`, 'warn');
+          }
+          if (opts.focusInput && inputEl()) inputEl().focus();
+        }
+      } catch (err) {
+        console.error(err);
+        LSUtils.toast('Processing failed — file may be too large or invalid', 'error');
+      } finally {
+        state.processing = false;
+        updateStatusBar();
+      }
+    };
+
+    // Yield to the browser so the UI can paint before heavy parse work
+    const heavy = prepared.studioExport || text.length > 150000;
+    if (heavy) {
+      LSUtils.toast(
+        prepared.studioExport
+          ? `Processing ${prepared.messageCount} log messages…`
+          : 'Processing large file…',
+        'info'
+      );
+      setTimeout(runHeavy, 30);
     } else {
-      LSUI.renderBlockChips([], -1, selectBlock);
-      applyFormatted('', null);
-      LSUtils.toast('No JSON found in input', 'warn');
+      runHeavy();
     }
-
-    state.processing = false;
   }
 
   function beautifyCurrent() {
@@ -230,18 +505,47 @@ const LSApp = (() => {
     }
   }
 
+  function selectedBlockLabel() {
+    const i = state.activeBlock;
+    const b = i >= 0 ? state.blocks[i] : null;
+    if (!b) return 'selected JSON';
+    if (b.label) return b.label;
+    if (b.valid && b.value && typeof b.value === 'object' && !Array.isArray(b.value)) {
+      if (b.value.id != null) return `id ${b.value.id}`;
+      if (b.value.current_page != null) return `list page ${b.value.current_page}`;
+    }
+    return `JSON ${i + 1} of ${state.blocks.length}`;
+  }
+
+  function safeFileSlug(label) {
+    return String(label || 'json')
+      .replace(/[<>:"/\\|?*\s]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 60) || 'json';
+  }
+
   async function copyFormatted() {
     const text = state.formatted || (rawEl() && rawEl().value) || '';
-    if (!text) return;
+    if (!text) {
+      LSUtils.toast('No JSON selected to copy', 'warn');
+      return;
+    }
     const ok = await LSUtils.copyText(text);
-    LSUtils.toast(ok ? 'Copied formatted JSON' : 'Copy failed', ok ? 'success' : 'error');
+    LSUtils.toast(
+      ok ? `Copied formatted · ${selectedBlockLabel()}` : 'Copy failed',
+      ok ? 'success' : 'error'
+    );
   }
 
   async function copyMinified() {
     try {
       const text = LSFormatter.minify(state.value != null ? state.value : (rawEl() && rawEl().value));
       const ok = await LSUtils.copyText(text);
-      LSUtils.toast(ok ? 'Copied minified JSON' : 'Copy failed', ok ? 'success' : 'error');
+      LSUtils.toast(
+        ok ? `Copied minified · ${selectedBlockLabel()}` : 'Copy failed',
+        ok ? 'success' : 'error'
+      );
     } catch (err) {
       LSUtils.toast(`Copy minify failed: ${err.message}`, 'error');
     }
@@ -255,16 +559,24 @@ const LSApp = (() => {
 
   function downloadJson() {
     const text = state.formatted || (rawEl() && rawEl().value) || '';
-    if (!text) return;
-    LSUtils.downloadText('logcat-studio.json', text, 'application/json;charset=utf-8');
-    LSUtils.toast('Downloaded JSON', 'success');
+    if (!text) {
+      LSUtils.toast('No JSON selected to download', 'warn');
+      return;
+    }
+    const name = `logcat-${safeFileSlug(selectedBlockLabel())}.json`;
+    LSUtils.downloadText(name, text, 'application/json;charset=utf-8');
+    LSUtils.toast(`Downloaded · ${selectedBlockLabel()}`, 'success');
   }
 
   function downloadTxt() {
     const text = state.formatted || (rawEl() && rawEl().value) || '';
-    if (!text) return;
-    LSUtils.downloadText('logcat-studio.txt', text, 'text/plain;charset=utf-8');
-    LSUtils.toast('Downloaded TXT', 'success');
+    if (!text) {
+      LSUtils.toast('No JSON selected to download', 'warn');
+      return;
+    }
+    const name = `logcat-${safeFileSlug(selectedBlockLabel())}.txt`;
+    LSUtils.downloadText(name, text, 'text/plain;charset=utf-8');
+    LSUtils.toast(`Downloaded · ${selectedBlockLabel()}`, 'success');
   }
 
   function clearAll() {
@@ -333,6 +645,21 @@ content-type: application/json
 charges":0,"sub_total":1081,"total":1081,"due":1081}},{"id":1342738,"name":"test 0455","opened_at":"2026-08-05 11:26:10","c
 losed_at":null,"open":1,"totals":{"total":8632},"status":"OPEN"}],"per_page":10000,"total":2}
 <-- END HTTP (9594-byte body)`,
+    api: `--> GET https://devapi.tabpoint.us/v33/locations/4000743/tickets?employee_id=9698&open=1&page=1
+Authorization: Bearer eyJdemo.token
+--> END GET
+<-- 200 https://devapi.tabpoint.us/v33/locations/4000743/tickets?employee_id=9698&open=1&page=1 (484ms)
+content-type: application/json
+
+{"current_page":1,"data":[{"id":1342901,"name":"test 0247","status":"OPEN","totals":{"total":540,"due":540}}],"total":1}
+<-- END HTTP (1712-byte body)
+--> GET https://devapi.tabpoint.us/v33/ping
+--> END GET
+<-- 200 https://devapi.tabpoint.us/v33/ping (389ms)
+content-type: text/html
+
+pong
+<-- END HTTP (7-byte body)`,
     formats: `2021-10-04 11:00:14.234 27217-3814  ExampleTag1             com.example.app1                     D  {"format":1,"ok":true}
 27217-3814  ExampleTag1             com.example.app1                     I  {"format":2,"ok":true}
 27217-3814  com.example.app1                     W  {"format":3,"ok":true}
@@ -351,6 +678,7 @@ com.example.app1                    {"format":5,"ok":true}
       logcat: 'samples/sample-logcat.txt',
       formats: 'samples/sample-all-formats.txt',
       messageOnly: 'samples/sample-message-only-split.txt',
+      api: 'samples/sample-api-calls.txt',
       request: 'samples/sample-request.txt',
       response: 'samples/sample-response.txt',
       json: 'samples/sample-json.json'
@@ -360,6 +688,9 @@ com.example.app1                    {"format":5,"ok":true}
 
     const apply = (text) => {
       processInput(text);
+      if (name === 'api' && state.apiCalls.length) {
+        LSUI.switchTab('api');
+      }
       LSUtils.toast(`Loaded sample: ${name}`, 'success');
     };
 
@@ -375,15 +706,60 @@ com.example.app1                    {"format":5,"ok":true}
       });
   }
 
-  function openFile(file) {
+  function isSupportedDropFile(file) {
+    if (!file) return false;
+    const name = String(file.name || '').toLowerCase();
+    if (/\.(json|txt|log|logcat|text|md)$/i.test(name)) return true;
+    const type = String(file.type || '').toLowerCase();
+    // Windows often gives empty / octet-stream for .logcat
+    if ((type === '' || type === 'application/octet-stream') && name.includes('.')) {
+      return /\.logcat$/i.test(name);
+    }
+    return type.includes('json') || type.startsWith('text/');
+  }
+
+  function openFile(file, options) {
+    const opts = options || {};
     if (!file) return;
+
+    if (!isSupportedDropFile(file)) {
+      LSUtils.toast(`Unsupported file: ${file.name}. Use .logcat, .log, .txt, or .json`, 'warn');
+      return;
+    }
+
+    const sizeMb = file.size / (1024 * 1024);
+    if (sizeMb > 1.5) {
+      LSUtils.toast(`Reading ${file.name} (${sizeMb.toFixed(1)} MB)…`, 'info');
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
-      processInput(String(reader.result || ''));
-      LSUtils.toast(`Opened ${file.name}`, 'success');
+      const text = String(reader.result || '');
+      // Yield so Chrome can paint before parse (prevents Page Unresponsive)
+      setTimeout(() => {
+        processInput(text, {
+          fromFile: file.name,
+          focusInput: opts.focusInput
+        });
+      }, 20);
     };
-    reader.onerror = () => LSUtils.toast('Failed to read file', 'error');
+    reader.onerror = () => LSUtils.toast(`Failed to read ${file.name}`, 'error');
     reader.readAsText(file);
+  }
+
+  function handleDroppedFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return false;
+    const supported = files.filter(isSupportedDropFile);
+    if (!supported.length) {
+      LSUtils.toast('Drop a .logcat, .log, .txt, or .json file', 'warn');
+      return true;
+    }
+    if (supported.length > 1) {
+      LSUtils.toast(`Opening ${supported[0].name} (${supported.length} files dropped — using first)`, 'info');
+    }
+    openFile(supported[0]);
+    return true;
   }
 
   function refreshHistoryPanel() {
@@ -469,6 +845,9 @@ com.example.app1                    {"format":5,"ok":true}
         if (tab.dataset.tab === 'stats') {
           LSUI.renderStats(LSValidator.statsForText(state.formatted || ''));
         }
+        if (tab.dataset.tab === 'api') {
+          refreshApiPanel();
+        }
       });
     });
 
@@ -504,6 +883,10 @@ com.example.app1                    {"format":5,"ok":true}
       loadSample('messageOnly');
       LSUI.closeMenus();
     });
+    document.getElementById('btn-sample-api')?.addEventListener('click', () => {
+      loadSample('api');
+      LSUI.closeMenus();
+    });
     document.getElementById('btn-sample-request')?.addEventListener('click', () => {
       loadSample('request');
       LSUI.closeMenus();
@@ -519,6 +902,9 @@ com.example.app1                    {"format":5,"ok":true}
 
     // Open file
     document.getElementById('btn-open')?.addEventListener('click', () => {
+      document.getElementById('file-open-input')?.click();
+    });
+    document.getElementById('btn-open-pane')?.addEventListener('click', () => {
       document.getElementById('file-open-input')?.click();
     });
     document.getElementById('file-open-input')?.addEventListener('change', (e) => {
@@ -548,31 +934,74 @@ com.example.app1                    {"format":5,"ok":true}
     // Path bar click to copy
     document.getElementById('json-path')?.addEventListener('click', copyPath);
 
-    // Drag & drop
+    // Drag & drop (window + input pane) — Logcat / JSON / .logcat
     const overlay = document.getElementById('drop-overlay');
+    const inputPane = document.getElementById('input-pane');
     let dragDepth = 0;
+
+    function hasFiles(e) {
+      const types = e.dataTransfer && e.dataTransfer.types;
+      if (!types) return false;
+      return (
+        (typeof types.includes === 'function' && types.includes('Files')) ||
+        (typeof types.contains === 'function' && types.contains('Files')) ||
+        Array.from(types).indexOf('Files') >= 0
+      );
+    }
+
+    function showDrop(on) {
+      overlay?.classList.toggle('visible', on);
+      overlay?.setAttribute('aria-hidden', on ? 'false' : 'true');
+      inputPane?.classList.toggle('drop-target', on);
+    }
+
     window.addEventListener('dragenter', (e) => {
+      if (!hasFiles(e)) return;
       e.preventDefault();
       dragDepth += 1;
-      overlay?.classList.add('visible');
+      showDrop(true);
     });
     window.addEventListener('dragleave', (e) => {
       e.preventDefault();
       dragDepth = Math.max(0, dragDepth - 1);
-      if (dragDepth === 0) overlay?.classList.remove('visible');
+      if (dragDepth === 0) showDrop(false);
     });
-    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('dragover', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      showDrop(true);
+    });
     window.addEventListener('drop', (e) => {
       e.preventDefault();
       dragDepth = 0;
-      overlay?.classList.remove('visible');
-      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) openFile(file);
-      else {
-        const text = e.dataTransfer && e.dataTransfer.getData('text');
-        if (text) processInput(text);
+      showDrop(false);
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length) {
+        handleDroppedFiles(files);
+        return;
       }
+      const text = e.dataTransfer && e.dataTransfer.getData('text');
+      if (text) processInput(text);
     });
+
+    // Also accept drops directly on the input editor
+    if (input) {
+      input.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      });
+      input.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragDepth = 0;
+        showDrop(false);
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          handleDroppedFiles(e.dataTransfer.files);
+        }
+      });
+    }
 
     // Close history on outside click
     document.addEventListener('click', (e) => {

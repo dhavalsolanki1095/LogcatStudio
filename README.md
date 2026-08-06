@@ -34,6 +34,7 @@ Then open `http://localhost:8080`.
 - **Smart Paste** — auto-detect and process Logcat / JSON
 - **Logcat Cleaner** — strips timestamps, PID/TID, levels, tags, package names
 - **JSON Extraction** — multiple blocks with switcher chips
+- **API Calls** — extract OkHttp/Retrofit method, URL, headers, request/response body, status, duration
 - **Beautify / Minify** — 2-space, 4-space, or tabs
 - **Validation** — line / column error reporting
 - **Repair** — trailing commas, single quotes, unquoted keys, comments, and more
@@ -103,8 +104,9 @@ This project is static and Pages-ready (includes `.nojekyll`).
 ## Supported input
 
 - Android Studio Logcat
+- Android Studio `.logcat` JSON export
 - Pretty / minified JSON
-- OkHttp Logging Interceptor
+- OkHttp Logging Interceptor (request + response)
 - Retrofit / Timber / Volley / Ktor logs
 - HTTP request / response logs
 - Mixed text with embedded JSON
