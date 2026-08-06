@@ -1,0 +1,13 @@
+2026-08-06 11:46:27.312  2629-2629  TicketListFragment      com.softpointdev.datapoint           I  Swipe refresh triggered
+2026-08-06 11:46:27.320  2629-2777  TicketsRep...yncTickets com.softpointdev.datapoint           V  cloudSyncTickets: start
+2026-08-06 11:46:27.336  2629-2777  ApiInterceptor          com.softpointdev.datapoint           I  Token starting for URL: https://devapi.tabpoint.us/locations/4000743/tickets
+2026-08-06 11:46:27.348  2629-2777  OkHttp                  com.softpointdev.datapoint           I  --> GET https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1
+2026-08-06 11:46:27.349  2629-2777  OkHttp                  com.softpointdev.datapoint           I  Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.demo
+2026-08-06 11:46:27.350  2629-2777  OkHttp                  com.softpointdev.datapoint           I  --> END GET
+2026-08-06 11:46:27.853  2629-2777  OkHttp                  com.softpointdev.datapoint           I  <-- 200 https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1 (503ms)
+2026-08-06 11:46:27.854  2629-2777  OkHttp                  com.softpointdev.datapoint           I  content-type: application/json
+2026-08-06 11:46:27.861  2629-2777  OkHttp                  com.softpointdev.datapoint           I  
+2026-08-06 11:46:27.862  2629-2777  OkHttp                  com.softpointdev.datapoint           I  {"current_page":1,"data":[{"id":1342899,"id_external":"1234580827","name":"","open":1,"status":"OPEN","totals":{"sub_total":1081,"total":1081,"due":1081}},{"id":1342898,"id_external":"1234580826","name":"","open":1,"status":"OPEN","totals":{"sub_total":1081,"other_
+2026-08-06 11:46:27.862  2629-2777  OkHttp                  com.softpointdev.datapoint           I  charges":0,"total":1081,"due":1081}}],"per_page":10000,"total":2}
+2026-08-06 11:46:27.863  2629-2777  OkHttp                  com.softpointdev.datapoint           I  <-- END HTTP (400-byte body)
+2026-08-06 11:46:27.883  2629-2777  TicketsRep...ketListAPI com.softpointdev.datapoint           I  cloudTicketListAPI getAllTicket page 1 success with 2

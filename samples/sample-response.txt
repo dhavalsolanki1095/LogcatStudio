@@ -1,0 +1,21 @@
+I/Retrofit: <-- 200 OK https://api.pos.example.com/v2/checkout (245ms)
+I/Retrofit: date: Fri, 15 Mar 2024 11:00:15 GMT
+I/Retrofit: content-type: application/json
+I/Retrofit: {
+I/Retrofit:   "success": true,
+I/Retrofit:   "code": 200,
+I/Retrofit:   "message": "Checkout completed",
+I/Retrofit:   "data": {
+I/Retrofit:     "transactionId": "TXN-44102",
+I/Retrofit:     "status": "COMPLETED",
+I/Retrofit:     "amount": 11.34,
+I/Retrofit:     "paymentMethod": "CARD",
+I/Retrofit:     "receipt": {
+I/Retrofit:       "receipt_html": "<div style='font-family:monospace;width:280px;padding:12px'><h2 style='text-align:center;margin:0'>Cafe Demo</h2><p style='text-align:center;margin:4px 0'>Order TCK-9921</p><hr/><p>Espresso x1 ........ $2.75</p><p>  + Extra Shot ...... $0.75</p><p>Croissant x2 ....... $7.00</p><hr/><p>Subtotal ........... $10.50</p><p>Tax ................ $0.84</p><p><b>TOTAL ............. $11.34</b></p><p style='text-align:center;margin-top:12px'>Thank you!</p></div>"
+I/Retrofit:     },
+I/Retrofit:     "createdAt": 1710495000,
+I/Retrofit:     "uuid": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+I/Retrofit:   },
+I/Retrofit:   "errors": null
+I/Retrofit: }
+I/Retrofit: <-- END HTTP

@@ -1,0 +1,10 @@
+﻿2026-08-06 11:46:27.348  2629-2777  OkHttp                  com.softpointdev.datapoint           I  --> GET https://devapi.tabpoint.us/v33/locations/4000743/tickets?employee_id=9698&open=1&page=1
+2026-08-06 11:46:27.349  2629-2777  OkHttp                  com.softpointdev.datapoint           I  Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.demo
+2026-08-06 11:46:27.350  2629-2777  OkHttp                  com.softpointdev.datapoint           I  --> END GET
+2026-08-06 11:46:27.853  2629-2777  OkHttp                  com.softpointdev.datapoint           I  <-- 200 https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1 (503ms)
+2026-08-06 11:46:27.854  2629-2777  OkHttp                  com.softpointdev.datapoint           I  content-type: application/json
+2026-08-06 11:46:27.861  2629-2777  OkHttp                  com.softpointdev.datapoint           I  
+2026-08-06 11:46:27.862  2629-2777  OkHttp                  com.softpointdev.datapoint           I  {"current_page":1,"data":[{"id":1342899,"id_external":"1234580827","opened_at":"2026-08-05 19:46:47","name":"","open":1,"totals":{"discounts":0,"items":0,"sub_total":1081,"total":1081,"due":1081},"status":"OPEN"},{"id":1342738,"id_external":"1234580821","name":"test 0455","open":1,"guest_count":3,"totals":{"items":7409,"tax":1223,"sub_total":7409,"total":8632,"due":8632,"other_
+2026-08-06 11:46:27.862  2629-2777  OkHttp                  com.softpointdev.datapoint           I  charges":0},"can_pay":1,"status":"OPEN"}],"first_page_url":"https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1","from":1,"last_page":1,"per_page":10000,"total":2}
+2026-08-06 11:46:27.863  2629-2777  OkHttp                  com.softpointdev.datapoint           I  <-- END HTTP (9594-byte body)
+2026-08-06 11:46:27.883  2629-2777  TicketsRep...ketListAPI com.softpointdev.datapoint           I  cloudTicketListAPI getAllTicket page 1 success with 2

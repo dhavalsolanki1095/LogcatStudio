@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Logcat Studio — Extract, clean, format, validate, and explore JSON from Android Studio Logcat" />
+  <meta name="theme-color" content="#1e1e1e" />
+  <title>Logcat Studio</title>
+  <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/theme.css" />
+</head>
+<body class="theme-dark">
+  <div id="app">
+    <!-- Toolbar -->
+    <header id="toolbar" role="toolbar" aria-label="Main toolbar">
+      <div class="toolbar-row toolbar-row-main">
+        <div class="toolbar-brand" title="Logcat Studio">
+          <img src="assets/icons/icon.svg" alt="" width="22" height="22" />
+          <span>Logcat Studio</span>
+        </div>
+
+        <div class="toolbar-group" aria-label="File">
+          <button type="button" class="toolbar-btn" id="btn-open" title="Open file (Ctrl+O)">
+            <span class="btn-icon">📂</span><span class="btn-label">Open</span>
+          </button>
+          <button type="button" class="toolbar-btn" id="btn-paste" title="Paste from clipboard">
+            <span class="btn-icon">📋</span><span class="btn-label">Paste</span>
+          </button>
+          <button type="button" class="toolbar-btn toolbar-btn-primary" id="btn-process" title="Process (Ctrl+Enter)">
+            <span class="btn-icon">▶</span><span class="btn-label">Process</span>
+          </button>
+          <button type="button" class="toolbar-btn" id="btn-clear" title="Clear all">
+            <span class="btn-icon">✕</span><span class="btn-label">Clear</span>
+          </button>
+        </div>
+
+        <div class="toolbar-group" aria-label="Format">
+          <button type="button" class="toolbar-btn" id="btn-beautify" title="Beautify (Ctrl+Shift+F)">
+            <span class="btn-icon">✨</span><span class="btn-label">Beautify</span>
+          </button>
+          <button type="button" class="toolbar-btn" id="btn-minify" title="Minify (Ctrl+M)">
+            <span class="btn-icon">📦</span><span class="btn-label">Minify</span>
+          </button>
+          <button type="button" class="toolbar-btn" id="btn-repair" title="Repair malformed JSON">
+            <span class="btn-icon">🔧</span><span class="btn-label">Repair</span>
+          </button>
+          <label class="toolbar-label" for="select-indent">Indent</label>
+          <select id="select-indent" class="toolbar-select" title="Indentation">
+            <option value="2">2 spaces</option>
+            <option value="4">4 spaces</option>
+            <option value="tab">Tabs</option>
+          </select>
+        </div>
+
+        <div class="toolbar-group" aria-label="Copy">
+          <div class="toolbar-dropdown">
+            <button type="button" class="toolbar-btn toolbar-dropdown-toggle" title="Copy" aria-haspopup="true" aria-expanded="false">
+              <span class="btn-icon">📑</span><span class="btn-label">Copy</span><span class="btn-caret">▾</span>
+            </button>
+            <div class="toolbar-menu" role="menu" hidden>
+              <button type="button" class="toolbar-menu-item" id="btn-copy-formatted" role="menuitem">Copy formatted</button>
+              <button type="button" class="toolbar-menu-item" id="btn-copy-minified" role="menuitem">Copy minified</button>
+              <button type="button" class="toolbar-menu-item" id="btn-copy-path" role="menuitem">Copy JSON path</button>
+            </div>
+          </div>
+          <div class="toolbar-dropdown">
+            <button type="button" class="toolbar-btn toolbar-dropdown-toggle" title="Download" aria-haspopup="true" aria-expanded="false">
+              <span class="btn-icon">💾</span><span class="btn-label">Download</span><span class="btn-caret">▾</span>
+            </button>
+            <div class="toolbar-menu" role="menu" hidden>
+              <button type="button" class="toolbar-menu-item" id="btn-download-json" role="menuitem">Download .json</button>
+              <button type="button" class="toolbar-menu-item" id="btn-download-txt" role="menuitem">Download .txt</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar-group" aria-label="Samples">
+          <div class="toolbar-dropdown">
+            <button type="button" class="toolbar-btn toolbar-dropdown-toggle" title="Load sample" aria-haspopup="true" aria-expanded="false">
+              <span class="btn-icon">🧪</span><span class="btn-label">Samples</span><span class="btn-caret">▾</span>
+            </button>
+            <div class="toolbar-menu" role="menu" hidden>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-logcat" role="menuitem">Logcat JSON</button>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-formats" role="menuitem">All Logcat formats</button>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-message-only" role="menuitem">Message-only OkHttp</button>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-request" role="menuitem">OkHttp Request</button>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-response" role="menuitem">Retrofit Response</button>
+              <button type="button" class="toolbar-menu-item" id="btn-sample-json" role="menuitem">Pretty JSON</button>
+            </div>
+          </div>
+          <button type="button" class="toolbar-btn" id="btn-history" title="Paste history">
+            <span class="btn-icon">🕐</span><span class="btn-label">History</span>
+          </button>
+          <button type="button" class="toolbar-btn" id="btn-receipt-preview" title="Preview receipt HTML" hidden>
+            <span class="btn-icon">🧾</span><span class="btn-label">Receipt</span>
+          </button>
+        </div>
+
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-group toolbar-group-end" aria-label="View">
+          <button type="button" class="toolbar-btn" id="btn-theme-toggle" title="Toggle Dark / Light">
+            <span class="btn-icon" id="theme-toggle-icon">🌙</span><span class="btn-label">Theme</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-row toolbar-row-secondary">
+        <span class="toolbar-label">Search</span>
+        <input type="search" id="search-input" class="toolbar-input toolbar-input-grow" placeholder="Search keys &amp; values (Ctrl+F)" autocomplete="off" spellcheck="false" />
+        <span id="search-count"></span>
+        <label class="toolbar-checkbox"><input type="checkbox" id="search-keys" checked /> Keys</label>
+        <label class="toolbar-checkbox"><input type="checkbox" id="search-values" checked /> Values</label>
+        <label class="toolbar-checkbox"><input type="checkbox" id="search-regex" /> Regex</label>
+        <label class="toolbar-checkbox"><input type="checkbox" id="search-case" /> Case</label>
+      </div>
+    </header>
+
+    <!-- Workspace -->
+    <main id="workspace">
+      <section id="input-pane" class="pane" aria-label="Input">
+        <div class="pane-header">
+          <div class="pane-header-title">Input · Logcat / JSON</div>
+          <div class="pane-header-actions">
+            <button type="button" class="pane-header-btn" id="btn-process-pane" title="Process">Process</button>
+          </div>
+        </div>
+        <div class="pane-body">
+          <textarea
+            id="input-editor"
+            class="editor-area"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            placeholder="Paste Android Studio Logcat, OkHttp, Retrofit, Timber, or raw JSON here…
+
+Example:
+11:00:14.234 27217-3814 ApiLogger D {
+11:00:14.235 27217-3814 ApiLogger D   &quot;name&quot;: &quot;Dhaval&quot;
+11:00:14.236 27217-3814 ApiLogger D }"
+          ></textarea>
+        </div>
+      </section>
+
+      <div id="splitter-v" title="Drag to resize" role="separator" aria-orientation="vertical"></div>
+
+      <section id="output-pane" class="pane" aria-label="Output">
+        <div class="pane-header">
+          <div class="output-tabs" role="tablist">
+            <button type="button" class="output-tab active" data-tab="raw" role="tab">Raw</button>
+            <button type="button" class="output-tab" data-tab="tree" role="tab">Tree</button>
+            <button type="button" class="output-tab" data-tab="compare" role="tab">Compare</button>
+            <button type="button" class="output-tab" data-tab="stats" role="tab">Statistics</button>
+          </div>
+          <div class="pane-header-actions">
+            <button type="button" class="pane-header-btn" id="btn-expand-all" title="Expand all tree nodes">Expand</button>
+            <button type="button" class="pane-header-btn" id="btn-collapse-all" title="Collapse all tree nodes">Collapse</button>
+          </div>
+        </div>
+
+        <div id="block-bar" class="block-bar">
+          <span class="block-bar-empty">Paste Logcat or JSON to begin</span>
+        </div>
+
+        <div id="validation-banner" role="status"></div>
+
+        <div class="pane-body" style="position:relative">
+          <!-- Raw -->
+          <div id="tab-raw" class="tab-panel active" role="tabpanel">
+            <div class="json-editor-stack">
+              <pre id="raw-highlight" class="json-highlight" aria-hidden="true"></pre>
+              <textarea id="raw-output" class="editor-area" spellcheck="false" autocomplete="off" readonly placeholder="Formatted JSON appears here…"></textarea>
+            </div>
+          </div>
+
+          <!-- Tree -->
+          <div id="tab-tree" class="tab-panel" role="tabpanel">
+            <div id="tree-container"></div>
+            <div id="path-bar">
+              <span class="path-label">Path</span>
+              <span id="json-path" title="Click to copy">$</span>
+            </div>
+          </div>
+
+          <!-- Compare -->
+          <div id="tab-compare" class="tab-panel" role="tabpanel">
+            <div style="display:flex;gap:6px;padding:6px 10px;background:var(--ls-bg-elevated);border-bottom:1px solid var(--ls-border);flex-shrink:0">
+              <button type="button" class="pane-header-btn" id="btn-compare-use-current">Use current as Left</button>
+              <button type="button" class="pane-header-btn" id="btn-compare-run" style="background:var(--ls-accent);color:#fff">Compare</button>
+            </div>
+            <div id="compare-container">
+              <div class="compare-pane">
+                <div class="compare-pane-header"><span>Left (A)</span></div>
+                <textarea id="compare-left" class="compare-editor" spellcheck="false" placeholder="JSON A…"></textarea>
+              </div>
+              <div class="compare-pane">
+                <div class="compare-pane-header"><span>Right (B)</span></div>
+                <textarea id="compare-right" class="compare-editor" spellcheck="false" placeholder="JSON B…"></textarea>
+              </div>
+            </div>
+            <div id="compare-diff"></div>
+            <div class="compare-legend">
+              <span class="legend-item"><span class="legend-swatch added"></span> Added</span>
+              <span class="legend-item"><span class="legend-swatch removed"></span> Removed</span>
+              <span class="legend-item"><span class="legend-swatch changed"></span> Changed</span>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div id="tab-stats" class="tab-panel" role="tabpanel">
+            <div id="stats-container"></div>
+          </div>
+
+          <!-- History popover -->
+          <div id="history-panel" aria-label="History">
+            <div class="history-header">
+              <span>History (last 10)</span>
+              <div>
+                <button type="button" class="pane-header-btn" id="btn-history-clear">Clear</button>
+                <button type="button" class="pane-header-btn" id="btn-history-close">Close</button>
+              </div>
+            </div>
+            <div id="history-list" class="history-list"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Status bar -->
+    <footer id="status-bar" role="status">
+      <div class="status-left">
+        <div class="status-item">
+          <span class="label">Type</span>
+          <span class="value" id="status-type">—</span>
+        </div>
+        <div class="status-item" id="status-valid-wrap">
+          <span class="label">JSON</span>
+          <span class="value" id="status-valid">—</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Blocks</span>
+          <span class="value" id="status-blocks">0</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <div class="status-item">
+          <span class="label">Size</span>
+          <span class="value" id="status-size">0 B</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Lines</span>
+          <span class="value" id="status-lines">0</span>
+        </div>
+        <div class="status-item clickable" title="Click path in tree for details">
+          <span class="label">Path</span>
+          <span class="value" id="status-path">$</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Receipt / Image modal -->
+  <div id="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Preview</h2>
+        <button type="button" class="modal-close" id="modal-close" title="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="receipt-preview-wrap">
+          <div id="receipt-frame"></div>
+        </div>
+        <div id="image-preview-wrap" hidden>
+          <img id="image-preview-img" alt="Preview" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="drop-overlay" aria-hidden="true">
+    <div class="drop-icon">📂</div>
+    <div class="drop-text">Drop JSON or log file</div>
+    <div class="drop-hint">.json · .txt · Logcat dumps</div>
+  </div>
+
+  <div id="toast-container" aria-live="polite"></div>
+  <input type="file" id="file-open-input" class="hidden-input" accept=".json,.txt,.log,.text,text/plain,application/json" />
+
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/parser.js?v=20260806c"></script>
+  <script src="js/formatter.js"></script>
+  <script src="js/highlighter.js"></script>
+  <script src="js/validator.js"></script>
+  <script src="js/tree.js"></script>
+  <script src="js/compare.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
