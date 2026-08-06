@@ -25,6 +25,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
           force_orphan: true
-          # Keep .nojekyll so GitHub serves files as-is
           enable_jekyll: false
-          exclude_assets: .github,.git
+          # Do NOT exclude .git — that deletes the temp publish repo
+          exclude_assets: .github
