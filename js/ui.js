@@ -35,7 +35,7 @@ const LSUI = (() => {
   }
 
   function switchTab(name) {
-    const shellTabs = { raw: 1, tree: 1, compare: 1, api: 1 };
+    const shellTabs = { raw: 1, tree: 1, compare: 1, api: 1, issues: 1 };
     const isShellView = !!shellTabs[name];
     const shell = document.getElementById('json-shell');
     if (shell) {
@@ -44,15 +44,22 @@ const LSUI = (() => {
 
     const jsonList = document.getElementById('json-block-list');
     const apiList = document.getElementById('api-list');
+    const issueList = document.getElementById('issue-list');
     const sideNav = document.getElementById('side-nav');
 
-    // Same vertical sidebar behavior as API Calls for Raw / Tree / Compare
     if (name === 'api') {
       if (jsonList) jsonList.hidden = true;
+      if (issueList) issueList.hidden = true;
       if (apiList) apiList.hidden = false;
+      if (sideNav) sideNav.hidden = false;
+    } else if (name === 'issues') {
+      if (jsonList) jsonList.hidden = true;
+      if (apiList) apiList.hidden = true;
+      if (issueList) issueList.hidden = false;
       if (sideNav) sideNav.hidden = false;
     } else if (isShellView) {
       if (apiList) apiList.hidden = true;
+      if (issueList) issueList.hidden = true;
       if (jsonList) jsonList.hidden = false;
       if (sideNav) sideNav.hidden = false;
     } else if (sideNav) {
@@ -68,8 +75,10 @@ const LSUI = (() => {
 
     const apiActions = document.getElementById('api-header-actions');
     const treeActions = document.getElementById('tree-header-actions');
+    const rawActions = document.getElementById('raw-header-actions');
     if (apiActions) apiActions.hidden = name !== 'api';
     if (treeActions) treeActions.hidden = name !== 'tree';
+    if (rawActions) rawActions.hidden = name !== 'raw';
 
     if (fullViewActive) fullViewTab = name;
     syncFullViewButton(name);
@@ -78,7 +87,7 @@ const LSUI = (() => {
   function syncFullViewButton(tabName) {
     const btn = document.getElementById('btn-full-view');
     if (!btn) return;
-    const supported = { raw: 1, tree: 1, api: 1, compare: 1 };
+    const supported = { raw: 1, tree: 1, api: 1, compare: 1, issues: 1 };
     btn.hidden = !supported[tabName];
     const on = fullViewActive && fullViewTab === tabName;
     btn.classList.toggle('active', on);
@@ -137,11 +146,19 @@ const LSUI = (() => {
       if (!toggle || !menu) return;
 
       toggle.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        const open = menu.hidden;
+        const willOpen = !!menu.hidden;
         closeMenus();
-        menu.hidden = !open;
-        toggle.setAttribute('aria-expanded', String(open));
+        if (willOpen) {
+          menu.hidden = false;
+          toggle.setAttribute('aria-expanded', 'true');
+        }
+      });
+
+      // Keep menu open when clicking inside it (disabled items, etc.)
+      menu.addEventListener('click', (e) => {
+        e.stopPropagation();
       });
     });
 
@@ -867,6 +884,293 @@ const LSUI = (() => {
     setDisabled('btn-api-use-response-json', !hasResponse);
   }
 
+  function catMeta(id) {
+    const list =
+      typeof LSIssueDetector !== 'undefined' ? LSIssueDetector.CATEGORIES : [];
+    return list.find((c) => c.id === id) || { id, label: id, icon: '•' };
+  }
+
+  function renderDeviceInfo(info) {
+    const el = document.getElementById('device-info-panel');
+    if (!el) return;
+    const fields =
+      typeof LSDeviceInfo !== 'undefined'
+        ? LSDeviceInfo.FIELDS
+        : [];
+    const data = info || (typeof LSDeviceInfo !== 'undefined' ? LSDeviceInfo.empty() : {});
+    const display =
+      typeof LSDeviceInfo !== 'undefined'
+        ? LSDeviceInfo.displayValue
+        : (v) => (v == null ? 'Not detected' : v);
+
+    const primary = [
+      { key: 'model', label: 'Model' },
+      { key: 'androidVersion', label: 'Android' },
+      { key: 'ram', label: 'RAM' },
+      { key: 'abi', label: 'ABI' },
+      { key: 'appVersion', label: 'App Version' },
+      { key: 'buildType', label: 'Build' }
+    ];
+
+    el.innerHTML =
+      `<div class="device-info-title">Device</div>` +
+      `<div class="device-info-grid">` +
+      primary
+        .map((f) => {
+          const val = display(data[f.key]);
+          const missing = val === 'Not detected';
+          return `<div class="device-info-row${missing ? ' missing' : ''}">
+            <span class="device-info-label">${LSUtils.escapeHtml(f.label)}</span>
+            <span class="device-info-value">${LSUtils.escapeHtml(val)}</span>
+          </div>`;
+        })
+        .join('') +
+      `</div>` +
+      `<details class="device-info-more"><summary>More device fields</summary>` +
+      `<div class="device-info-grid">` +
+      fields
+        .filter((f) => !primary.some((p) => p.key === f.key))
+        .map((f) => {
+          const val = display(data[f.key]);
+          const missing = val === 'Not detected';
+          return `<div class="device-info-row${missing ? ' missing' : ''}">
+            <span class="device-info-label">${LSUtils.escapeHtml(f.label)}</span>
+            <span class="device-info-value">${LSUtils.escapeHtml(val)}</span>
+          </div>`;
+        })
+        .join('') +
+      `</div></details>`;
+  }
+
+  function renderIssuesSummary(report, activeCategory, onSelectCategory) {
+    const el = document.getElementById('issues-summary');
+    if (!el) return;
+    const cats =
+      (report && report.categories) ||
+      (typeof LSIssueDetector !== 'undefined' ? LSIssueDetector.CATEGORIES : []);
+    const summary = (report && report.summary) || {};
+
+    el.innerHTML = cats
+      .map((c) => {
+        const n = summary[c.id] || 0;
+        const active = activeCategory === c.id ? ' active' : '';
+        return `<button type="button" class="issue-cat-card${active}" data-category="${c.id}">
+          <span class="issue-cat-icon">${c.icon}</span>
+          <span class="issue-cat-label">${LSUtils.escapeHtml(c.label)}</span>
+          <span class="issue-cat-count">${n}</span>
+        </button>`;
+      })
+      .join('');
+
+    el.querySelectorAll('.issue-cat-card').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (typeof onSelectCategory === 'function') onSelectCategory(btn.dataset.category);
+      });
+    });
+  }
+
+  function renderIssueGroups(report, category, activeGroupKey, onSelectGroup) {
+    const itemsEl = document.getElementById('issue-list-items');
+    const header = document.querySelector('#issue-list .raw-list-header');
+    if (!itemsEl) return;
+
+    const meta = catMeta(category);
+    if (header) header.textContent = meta.icon + ' ' + meta.label;
+
+    if (!report || !category) {
+      itemsEl.innerHTML =
+        '<div class="api-list-empty">Select a category above to list issues.</div>';
+      return;
+    }
+
+    let groups =
+      typeof LSIssueDetector !== 'undefined'
+        ? LSIssueDetector.groupsForCategory(report, category)
+        : [];
+
+    // Cap list for performance — show top groups by count
+    const MAX = 500;
+    if (groups.length > MAX) groups = groups.slice(0, MAX);
+
+    if (!groups.length) {
+      itemsEl.innerHTML =
+        '<div class="api-list-empty">No issues in this category.</div>';
+      return;
+    }
+
+    itemsEl.innerHTML = '';
+    groups.forEach((g) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className =
+        'raw-block-item' + (g.groupKey === activeGroupKey ? ' active' : '');
+      const src =
+        g.sourceFile != null
+          ? `${g.sourceFile}${g.sourceLine != null ? ':' + g.sourceLine : ''}`
+          : g.status != null
+            ? 'HTTP ' + g.status
+            : g.permission || '';
+      fillSideNavCard(btn, {
+        method: meta.icon,
+        methodClass: 'issue',
+        statusText: '×' + g.count,
+        statusClass: g.count > 1 ? 'err' : 'pending',
+        path: g.title || meta.label,
+        meta: src || `${g.count} occurrence${g.count === 1 ? '' : 's'}`
+      });
+      btn.addEventListener('click', () => {
+        if (typeof onSelectGroup === 'function') onSelectGroup(g.groupKey);
+      });
+      itemsEl.appendChild(btn);
+    });
+  }
+
+  function renderIssueDetail(report, groupKey, onSelectOccurrence) {
+    const detail = document.getElementById('issue-detail');
+    if (!detail) return;
+
+    if (!report || !groupKey) {
+      detail.innerHTML =
+        '<div class="api-detail-empty">Select an issue group to see details</div>';
+      return;
+    }
+
+    const group =
+      typeof LSIssueDetector !== 'undefined'
+        ? LSIssueDetector.findGroup(report, groupKey)
+        : null;
+    if (!group) {
+      detail.innerHTML = '<div class="api-detail-empty">Group not found</div>';
+      return;
+    }
+
+    const meta = catMeta(group.category);
+    const members = group.issueIds
+      .map((id) => LSIssueDetector.findIssue(report, id))
+      .filter(Boolean);
+
+    const src =
+      group.sourceFile != null
+        ? `${group.sourceFile}${group.sourceLine != null ? ':' + group.sourceLine : ''}`
+        : 'Not detected';
+
+    detail.innerHTML = `
+      <div class="issue-detail-header">
+        <div class="issue-detail-title">${meta.icon} ${LSUtils.escapeHtml(group.title)}</div>
+        <div class="issue-detail-meta">
+          <div><span class="k">Exception</span> <span class="v">${LSUtils.escapeHtml(group.title)}</span></div>
+          <div><span class="k">Occurrences</span> <span class="v">${group.count}</span></div>
+          <div><span class="k">First</span> <span class="v">${LSUtils.escapeHtml(group.firstTime || '—')}</span></div>
+          <div><span class="k">Last</span> <span class="v">${LSUtils.escapeHtml(group.lastTime || '—')}</span></div>
+          <div><span class="k">Source</span> <span class="v">${LSUtils.escapeHtml(src)}</span></div>
+        </div>
+      </div>
+      <div class="issue-occ-list">
+        ${members
+          .map(
+            (iss, idx) => `
+          <button type="button" class="issue-occ-item" data-issue-id="${LSUtils.escapeHtml(iss.id)}">
+            <span class="occ-n">Occurrence ${idx + 1}</span>
+            <span class="occ-line">line ${iss.lineIndex + 1}</span>
+            <span class="occ-time">${LSUtils.escapeHtml(iss.time || '')}</span>
+          </button>`
+          )
+          .join('')}
+      </div>
+    `;
+
+    detail.querySelectorAll('.issue-occ-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        detail.querySelectorAll('.issue-occ-item').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (typeof onSelectOccurrence === 'function') onSelectOccurrence(btn.dataset.issueId);
+      });
+    });
+  }
+
+  /**
+   * Show surrounding log lines for a hit. Uses indexes into sourceLines (no copy of full log).
+   */
+  function renderLogContext(sourceLines, lineIndex, lineEnd, highlightQuery) {
+    const el = document.getElementById('log-context');
+    if (!el) return;
+    const lines = sourceLines || [];
+    if (!lines.length || lineIndex == null || lineIndex < 0) {
+      el.innerHTML = '<div class="api-detail-empty">No log context</div>';
+      return;
+    }
+
+    const end = lineEnd != null ? lineEnd : lineIndex;
+    const CTX = 8;
+    const from = Math.max(0, lineIndex - CTX);
+    const to = Math.min(lines.length - 1, end + CTX);
+    const parts = [];
+    parts.push(
+      `<div class="log-context-header">Log context · lines ${from + 1}–${to + 1}</div>`
+    );
+    parts.push('<div class="log-context-scroll">');
+    for (let i = from; i <= to; i++) {
+      const hit = i >= lineIndex && i <= end;
+      const num = String(i + 1);
+      let text = LSUtils.escapeHtml(lines[i] || '');
+      parts.push(
+        `<div class="log-context-line${hit ? ' hit' : ''}" data-line="${i}">` +
+          `<span class="log-context-num">${num}</span>` +
+          `<span class="log-context-text">${text}</span></div>`
+      );
+    }
+    parts.push('</div>');
+    el.innerHTML = parts.join('');
+
+    const hitEl = el.querySelector('.log-context-line.hit');
+    if (hitEl) hitEl.scrollIntoView({ block: 'center' });
+  }
+
+  function clearIssuesUi() {
+    renderIssuesSummary(null, null, null);
+    renderDeviceInfo(null);
+    const itemsEl = document.getElementById('issue-list-items');
+    if (itemsEl) {
+      itemsEl.innerHTML =
+        '<div class="api-list-empty">No issues yet. Process Logcat to detect errors.</div>';
+    }
+    const detail = document.getElementById('issue-detail');
+    if (detail) {
+      detail.innerHTML =
+        '<div class="api-detail-empty">Select a category or issue group</div>';
+    }
+    const ctx = document.getElementById('log-context');
+    if (ctx) ctx.innerHTML = '';
+  }
+
+  function showBusyOverlay(title, detail) {
+    const overlay = document.getElementById('busy-overlay');
+    const titleEl = document.getElementById('busy-title');
+    const detailEl = document.getElementById('busy-detail');
+    if (!overlay) return;
+    if (titleEl) titleEl.textContent = title || 'Processing Logcat…';
+    if (detailEl) detailEl.textContent = detail || 'Please wait';
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('ls-busy');
+  }
+
+  function updateBusyOverlay(detail, title) {
+    const titleEl = document.getElementById('busy-title');
+    const detailEl = document.getElementById('busy-detail');
+    if (title != null && titleEl) titleEl.textContent = title;
+    if (detail != null && detailEl) detailEl.textContent = detail;
+  }
+
+  function hideBusyOverlay() {
+    const overlay = document.getElementById('busy-overlay');
+    if (overlay) {
+      overlay.hidden = true;
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('ls-busy');
+  }
+
   return {
     initTheme,
     applyTheme,
@@ -892,7 +1196,16 @@ const LSUI = (() => {
     toggleFullView,
     enterFullView,
     exitFullView,
-    isFullView
+    isFullView,
+    renderDeviceInfo,
+    renderIssuesSummary,
+    renderIssueGroups,
+    renderIssueDetail,
+    renderLogContext,
+    clearIssuesUi,
+    showBusyOverlay,
+    updateBusyOverlay,
+    hideBusyOverlay
   };
 })();
 

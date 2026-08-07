@@ -21,6 +21,11 @@ const LSUtils = (() => {
     };
   }
 
+  /** Yield to the browser so the UI can paint (avoids Page Unresponsive). */
+  function yieldToMain(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms == null ? 0 : ms));
+  }
+
   function formatBytes(bytes) {
     if (bytes === 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
@@ -164,12 +169,19 @@ const LSUtils = (() => {
 
   function countLines(text) {
     if (!text) return 0;
-    return String(text).split(/\r\n|\r|\n/).length;
+    const s = String(text);
+    let n = 1;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c === 10) n += 1; // \n
+    }
+    return n;
   }
 
   return {
     escapeHtml,
     debounce,
+    yieldToMain,
     formatBytes,
     formatNumber,
     copyText,

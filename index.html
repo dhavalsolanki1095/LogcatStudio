@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#1e1e1e" />
   <title>Logcat Studio</title>
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg" />
-  <link rel="stylesheet" href="css/style.css?v=20260807d" />
-  <link rel="stylesheet" href="css/theme.css?v=20260807d" />
+  <link rel="stylesheet" href="css/style.css?v=20260807q" />
+  <link rel="stylesheet" href="css/theme.css?v=20260807k" />
 </head>
 <body class="theme-dark">
   <div id="app">
@@ -139,25 +139,33 @@ Supports:
             <button type="button" class="output-tab active" data-tab="raw" role="tab">Raw</button>
             <button type="button" class="output-tab" data-tab="tree" role="tab">Tree</button>
             <button type="button" class="output-tab" data-tab="api" role="tab">API Calls</button>
+            <button type="button" class="output-tab" data-tab="issues" role="tab">Issues</button>
             <button type="button" class="output-tab" data-tab="compare" role="tab">Compare</button>
           </div>
           <div class="pane-header-actions">
             <div id="api-header-actions" class="api-header-actions" hidden role="toolbar" aria-label="API detail actions">
-              <button type="button" class="pane-header-btn api-btn-primary" id="btn-api-copy-full" title="Copy URL, request and response for sharing">
-                <span class="api-btn-icon" aria-hidden="true">📋</span> Full details
+              <div class="toolbar-dropdown api-copy-dropdown">
+                <button type="button" class="pane-header-btn api-btn-primary toolbar-dropdown-toggle" id="btn-api-copy-menu" title="Copy API details" aria-haspopup="true" aria-expanded="false">
+                  <span class="api-btn-icon" aria-hidden="true">📋</span> Copy <span class="btn-caret">▾</span>
+                </button>
+                <div class="toolbar-menu api-copy-menu" role="menu" hidden>
+                  <button type="button" class="toolbar-menu-item" id="btn-api-copy-full" role="menuitem">Full details</button>
+                  <button type="button" class="toolbar-menu-item" id="btn-api-copy-url" role="menuitem">URL</button>
+                  <button type="button" class="toolbar-menu-item" id="btn-api-copy-request" role="menuitem" disabled>Request body</button>
+                  <button type="button" class="toolbar-menu-item" id="btn-api-copy-response" role="menuitem" disabled>Response body</button>
+                </div>
+              </div>
+              <button type="button" class="pane-header-btn" id="btn-api-use-response-json" title="Open response JSON in Raw tab" disabled>Open in Raw</button>
+            </div>
+            <div id="raw-header-actions" class="raw-header-actions">
+              <button type="button" class="pane-header-btn" id="btn-raw-copy" title="Copy selected JSON">
+                <span class="api-btn-icon" aria-hidden="true">📋</span> Copy JSON
               </button>
-              <button type="button" class="pane-header-btn" id="btn-api-copy-url" title="Copy request URL">
-                <span class="api-btn-icon" aria-hidden="true">📋</span> URL
-              </button>
-              <button type="button" class="pane-header-btn" id="btn-api-copy-request" title="Copy request body" disabled>
-                <span class="api-btn-icon" aria-hidden="true">📋</span> Request body
-              </button>
-              <button type="button" class="pane-header-btn" id="btn-api-copy-response" title="Copy response body" disabled>
-                <span class="api-btn-icon" aria-hidden="true">📋</span> Response body
-              </button>
-              <button type="button" class="pane-header-btn" id="btn-api-use-response-json" title="Open response JSON in Raw tab" disabled>Open response in Raw</button>
             </div>
             <div id="tree-header-actions" class="tree-header-actions" hidden>
+              <button type="button" class="pane-header-btn" id="btn-tree-copy" title="Copy selected JSON">
+                <span class="api-btn-icon" aria-hidden="true">📋</span> Copy JSON
+              </button>
               <button type="button" class="pane-header-btn" id="btn-expand-all" title="Expand all tree nodes">Expand</button>
               <button type="button" class="pane-header-btn" id="btn-collapse-all" title="Collapse all tree nodes">Collapse</button>
             </div>
@@ -187,6 +195,12 @@ Supports:
                 <div class="raw-list-header">API calls</div>
                 <div id="api-list-items">
                   <div class="api-list-empty">No API calls found. Paste OkHttp / Logcat / .logcat export.</div>
+                </div>
+              </div>
+              <div id="issue-list" class="side-nav-panel" hidden>
+                <div class="raw-list-header">Issue groups</div>
+                <div id="issue-list-items">
+                  <div class="api-list-empty">No issues yet. Process Logcat to detect errors.</div>
                 </div>
               </div>
             </aside>
@@ -239,6 +253,20 @@ Supports:
                   <div class="api-detail-empty">Select an API call to view request / response</div>
                 </section>
               </div>
+
+              <!-- Issues: Smart Error Detection + Crash Grouping + Device Info -->
+              <div id="tab-issues" class="tab-panel" role="tabpanel">
+                <section id="issues-panel" class="issues-panel" aria-label="Issues">
+                  <div class="issues-summary" id="issues-summary"></div>
+                  <div class="device-info-panel" id="device-info-panel"></div>
+                  <div class="issues-detail-wrap">
+                    <div id="issue-detail" class="issue-detail">
+                      <div class="api-detail-empty">Select a category or issue group</div>
+                    </div>
+                    <div id="log-context" class="log-context" aria-label="Log context"></div>
+                  </div>
+                </section>
+              </div>
             </div>
           </div>
 
@@ -275,6 +303,10 @@ Supports:
         <div class="status-item">
           <span class="label">APIs</span>
           <span class="value" id="status-apis">0</span>
+        </div>
+        <div class="status-item">
+          <span class="label">Issues</span>
+          <span class="value" id="status-issues">0</span>
         </div>
       </div>
       <div class="status-right">
@@ -318,20 +350,34 @@ Supports:
     <div class="drop-hint">.logcat · .log · .txt · .json</div>
   </div>
 
+  <!-- Centered processing overlay (blocks UI, allows Cancel) -->
+  <div id="busy-overlay" class="busy-overlay" hidden aria-hidden="true" role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-detail">
+    <div class="busy-card">
+      <div class="busy-spinner" aria-hidden="true"></div>
+      <div id="busy-title" class="busy-title">Processing Logcat…</div>
+      <div id="busy-detail" class="busy-detail">Please wait</div>
+      <button type="button" class="busy-cancel" id="btn-busy-cancel" title="Stop and start fresh">Cancel</button>
+      <div class="busy-hint">Cancel stops processing and clears the workspace</div>
+    </div>
+  </div>
+
   <div id="toast-container" aria-live="polite"></div>
   <input type="file" id="file-open-input" class="hidden-input" accept=".json,.txt,.log,.logcat,.text,text/plain,application/json" />
 
-  <script src="js/utils.js"></script>
-  <script src="js/storage.js?v=20260806n"></script>
-  <script src="js/parser.js?v=20260806n"></script>
-  <script src="js/api-extractor.js?v=20260806n"></script>
+  <script src="js/utils.js?v=20260807j"></script>
+  <script src="js/storage.js?v=20260807n"></script>
+  <script src="js/parser.js?v=20260807j"></script>
+  <script src="js/api-extractor.js?v=20260807j"></script>
   <script src="js/formatter.js"></script>
   <script src="js/highlighter.js"></script>
   <script src="js/json-view.js?v=20260807b"></script>
+  <script src="js/log-index.js?v=20260807e"></script>
+  <script src="js/issue-detector.js?v=20260807j"></script>
+  <script src="js/device-info.js?v=20260807j"></script>
   <script src="js/validator.js?v=20260807c"></script>
   <script src="js/tree.js"></script>
   <script src="js/compare.js"></script>
-  <script src="js/ui.js?v=20260807c"></script>
-  <script src="js/app.js?v=20260807c"></script>
+  <script src="js/ui.js?v=20260807q"></script>
+  <script src="js/app.js?v=20260807q"></script>
 </body>
 </html>

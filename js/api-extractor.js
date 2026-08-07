@@ -122,13 +122,18 @@ const LSApiExtractor = (() => {
 
   /**
    * Extract API transactions from Logcat / .logcat / OkHttp paste.
+   * Pass opts.lines when text is already split (avoids a second full split/parse).
    */
-  function extract(raw) {
-    const lines = toMessageLines(raw);
+  function extract(raw, opts) {
+    const options = opts || {};
+    const lines = Array.isArray(options.lines)
+      ? options.lines
+      : toMessageLines(raw);
     const calls = [];
     let txn = null;
     let phase = null; // 'req' | 'res' | null
     let bodyBuf = [];
+    const maxCalls = options.maxCalls > 0 ? options.maxCalls : 500;
 
     function flushBody(into) {
       if (!bodyBuf.length) return;
@@ -158,6 +163,7 @@ const LSApiExtractor = (() => {
     }
 
     for (let i = 0; i < lines.length; i += 1) {
+      if (calls.length >= maxCalls) break;
       const msg = lines[i];
       if (msg === '') {
         // blank line often separates headers from body in OkHttp
@@ -234,7 +240,7 @@ const LSApiExtractor = (() => {
         if (/^(?:ALLOW_DEFAULT|IGNORE_ARGUMENTS|Token |Server |Swipe |cloud)/i.test(msg)) {
           continue;
         }
-        bodyBuf.push(msg);
+        if (bodyBuf.length < 8000) bodyBuf.push(msg);
       }
     }
 

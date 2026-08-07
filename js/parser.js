@@ -329,10 +329,21 @@ const LSParser = (() => {
   /**
    * Expand Android Studio .logcat JSON export → plain message lines (one parse).
    * Returns null if not a studio export.
+   * Also captures device metadata from the export header when present.
    */
   function expandStudioLogcatExport(raw) {
     const text = String(raw || '');
     if (!looksLikeStudioLogcatExport(text)) return null;
+
+    // Very large exports: avoid one giant JSON.parse (freezes slower PCs)
+    if (text.length > 6 * 1024 * 1024) {
+      try {
+        return expandStudioLogcatExportFast(text);
+      } catch (_) {
+        /* fall through to full parse */
+      }
+    }
+
     try {
       const parsed = JSON.parse(text);
       if (!parsed || !Array.isArray(parsed.logcatMessages)) return null;
@@ -342,14 +353,110 @@ const LSParser = (() => {
         const msg = decodeLogcatEscapes((m && m.message) || '').trim();
         if (msg) lines.push(msg);
       }
+
+      const deviceMeta = extractStudioDeviceMeta(parsed);
+
       return {
         text: lines.join('\n'),
         messageCount: lines.length,
-        originalSize: text.length
+        originalSize: text.length,
+        deviceMeta
       };
     } catch (_) {
       return null;
     }
+  }
+
+  /**
+   * Lightweight expand for multi‑MB .logcat files:
+   * - device meta from the file head
+   * - messages via "message" field scan (no full JSON.parse)
+   */
+  function expandStudioLogcatExportFast(text) {
+    const head = text.slice(0, 12000);
+    let deviceMeta = null;
+    try {
+      // Parse only the metadata object prefix when possible
+      const metaMatch = head.match(/"metadata"\s*:\s*\{/);
+      if (metaMatch) {
+        // Best-effort: pull known fields with regex from head
+        deviceMeta = {};
+        const man = head.match(/"manufacturer"\s*:\s*"([^"]+)"/);
+        const model = head.match(/"model"\s*:\s*"([^"]+)"/);
+        const release = head.match(/"release"\s*:\s*"([^"]+)"/);
+        const sdk = head.match(/"majorVersion"\s*:\s*(\d+)/);
+        const pkg = head.match(/"projectApplicationIds"\s*:\s*\[\s*"([^"]+)"/);
+        if (man) deviceMeta.manufacturer = man[1];
+        if (model) deviceMeta.model = model[1];
+        if (release) deviceMeta.androidVersion = release[1];
+        if (sdk) deviceMeta.sdk = sdk[1];
+        if (pkg && !/\.test$/i.test(pkg[1])) deviceMeta.packageName = pkg[1];
+      }
+    } catch (_) {
+      deviceMeta = null;
+    }
+
+    const lines = [];
+    const re = /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    let m;
+    let guard = 0;
+    const MAX_MSG = 200000;
+    while ((m = re.exec(text)) && guard < MAX_MSG) {
+      guard += 1;
+      const msg = decodeLogcatEscapes(m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')).trim();
+      if (msg) lines.push(msg);
+    }
+
+    return {
+      text: lines.join('\n'),
+      messageCount: lines.length,
+      originalSize: text.length,
+      deviceMeta
+    };
+  }
+
+  /** Pull physicalDevice + app ids from Android Studio .logcat metadata */
+  function extractStudioDeviceMeta(parsed) {
+    const out = {};
+    try {
+      const phys =
+        parsed &&
+        parsed.metadata &&
+        parsed.metadata.device &&
+        parsed.metadata.device.physicalDevice;
+      if (phys && typeof phys === 'object') {
+        if (phys.manufacturer) out.manufacturer = String(phys.manufacturer);
+        if (phys.model) out.model = String(phys.model);
+        if (phys.release) out.androidVersion = String(phys.release);
+        if (phys.serialNumber) out.serial = String(phys.serialNumber);
+        if (phys.type) out.deviceType = String(phys.type);
+        if (phys.apiLevel != null) {
+          if (typeof phys.apiLevel === 'object' && phys.apiLevel.majorVersion != null) {
+            out.sdk = String(phys.apiLevel.majorVersion);
+          } else if (typeof phys.apiLevel === 'number' || typeof phys.apiLevel === 'string') {
+            out.sdk = String(phys.apiLevel);
+          }
+        }
+        if (phys.featureLevel != null && !out.sdk) {
+          out.sdk = String(phys.featureLevel);
+        }
+      }
+      const apps =
+        parsed && parsed.metadata && Array.isArray(parsed.metadata.projectApplicationIds)
+          ? parsed.metadata.projectApplicationIds
+          : [];
+      const mainApp = apps.find(
+        (id) =>
+          typeof id === 'string' &&
+          id.indexOf('.') > 0 &&
+          !/\.test$/i.test(id) &&
+          !/^com\.android\./i.test(id)
+      );
+      if (mainApp) out.packageName = mainApp;
+    } catch (_) {
+      /* ignore */
+    }
+    return out;
   }
 
   /**
@@ -363,14 +470,16 @@ const LSParser = (() => {
         workText: expanded.text,
         studioExport: true,
         messageCount: expanded.messageCount,
-        originalSize: expanded.originalSize
+        originalSize: expanded.originalSize,
+        deviceMeta: expanded.deviceMeta || null
       };
     }
     return {
       workText: original,
       studioExport: false,
       messageCount: 0,
-      originalSize: original.length
+      originalSize: original.length,
+      deviceMeta: null
     };
   }
 

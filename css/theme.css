@@ -85,6 +85,15 @@ body.theme-light #drop-overlay {
   background: rgba(0, 120, 212, 0.85);
 }
 
+body.theme-light .busy-overlay {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+body.theme-light .busy-card {
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
 body.theme-light .modal-body {
   background: #c8c8c8;
 }

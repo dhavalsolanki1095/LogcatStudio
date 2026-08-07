@@ -6,6 +6,7 @@ const LSApp = (() => {
 
   const state = {
     inputRaw: '',
+    sourceLines: [],
     blocks: [],
     activeBlock: -1,
     apiCalls: [],
@@ -15,7 +16,14 @@ const LSApp = (() => {
     indent: '2',
     inputType: 'empty',
     receiptHtml: null,
-    processing: false
+    processing: false,
+    abortProcessing: false,
+    processToken: 0,
+    _pendingInput: null,
+    issueReport: null,
+    deviceInfo: null,
+    activeIssueCategory: null,
+    activeIssueGroup: null
   };
 
   function inputEl() {
@@ -41,8 +49,20 @@ const LSApp = (() => {
       'status-type': state.inputType || '—',
       'status-blocks': state.blocks.length ? String(state.blocks.length) : '0',
       'status-apis': state.apiCalls.length ? String(state.apiCalls.length) : '0',
+      'status-issues': state.issueReport
+        ? String(
+            Object.keys(state.issueReport.summary || {}).reduce(
+              (n, k) => n + (state.issueReport.summary[k] || 0),
+              0
+            )
+          )
+        : '0',
       'status-size': text ? LSUtils.formatBytes(new Blob([text]).size) : '0 B',
-      'status-lines': text ? String(LSUtils.countLines(text)) : '0',
+      'status-lines': state.inputRaw
+        ? String(LSUtils.countLines(state.inputRaw))
+        : text
+          ? String(LSUtils.countLines(text))
+          : '0',
       'status-path': LSTree.getSelectedPath() || '$'
     });
 
@@ -138,12 +158,14 @@ const LSApp = (() => {
           ? LSApiExtractor.formatFullDetails(call)
           : '';
       const ok = await LSUtils.copyText(text);
+      LSUI.closeMenus();
       LSUtils.toast(ok ? 'Full API details copied — ready to share' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-copy-url')?.addEventListener('click', async () => {
       const call = getCall();
       if (!call) return;
       const ok = await LSUtils.copyText(call.url || '');
+      LSUI.closeMenus();
       LSUtils.toast(ok ? 'URL copied' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-copy-request')?.addEventListener('click', async () => {
@@ -154,6 +176,7 @@ const LSApp = (() => {
           ? LSFormatter.beautify(call.request.body, getIndent())
           : call.request.bodyRaw || '';
       const ok = await LSUtils.copyText(text);
+      LSUI.closeMenus();
       LSUtils.toast(ok ? 'Request body copied' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-copy-response')?.addEventListener('click', async () => {
@@ -164,6 +187,7 @@ const LSApp = (() => {
           ? LSFormatter.beautify(call.response.body, getIndent())
           : call.response.bodyRaw || '';
       const ok = await LSUtils.copyText(text);
+      LSUI.closeMenus();
       LSUtils.toast(ok ? 'Response body copied' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-use-response-json')?.addEventListener('click', () => {
@@ -201,6 +225,108 @@ const LSApp = (() => {
     }
     const idx = state.activeApi >= 0 ? state.activeApi : 0;
     selectApiCall(idx);
+  }
+
+  function refreshIssuesPanel() {
+    LSUI.renderDeviceInfo(state.deviceInfo);
+    LSUI.renderIssuesSummary(
+      state.issueReport,
+      state.activeIssueCategory,
+      selectIssueCategory
+    );
+    LSUI.renderIssueGroups(
+      state.issueReport,
+      state.activeIssueCategory,
+      state.activeIssueGroup,
+      selectIssueGroup
+    );
+    if (state.activeIssueGroup) {
+      LSUI.renderIssueDetail(state.issueReport, state.activeIssueGroup, selectIssueOccurrence);
+    } else {
+      LSUI.renderIssueDetail(null, null, null);
+      LSUI.renderLogContext([], -1);
+    }
+  }
+
+  function selectIssueCategory(category) {
+    state.activeIssueCategory = category;
+    state.activeIssueGroup = null;
+    LSUI.switchTab('issues');
+    LSUI.renderIssuesSummary(state.issueReport, category, selectIssueCategory);
+    LSUI.renderIssueGroups(state.issueReport, category, null, selectIssueGroup);
+    LSUI.renderIssueDetail(null, null, null);
+    // Auto-select first group if any
+    if (state.issueReport && typeof LSIssueDetector !== 'undefined') {
+      const groups = LSIssueDetector.groupsForCategory(state.issueReport, category);
+      if (groups.length) selectIssueGroup(groups[0].groupKey);
+    }
+  }
+
+  function selectIssueGroup(groupKey) {
+    state.activeIssueGroup = groupKey;
+    LSUI.renderIssueGroups(
+      state.issueReport,
+      state.activeIssueCategory,
+      groupKey,
+      selectIssueGroup
+    );
+    LSUI.renderIssueDetail(state.issueReport, groupKey, selectIssueOccurrence);
+    const group =
+      typeof LSIssueDetector !== 'undefined'
+        ? LSIssueDetector.findGroup(state.issueReport, groupKey)
+        : null;
+    if (group && group.issueIds && group.issueIds[0]) {
+      selectIssueOccurrence(group.issueIds[0]);
+    }
+  }
+
+  function selectIssueOccurrence(issueId) {
+    const iss =
+      typeof LSIssueDetector !== 'undefined'
+        ? LSIssueDetector.findIssue(state.issueReport, issueId)
+        : null;
+    if (!iss) return;
+    jumpToLogLine(iss.lineIndex, iss.lineEnd);
+  }
+
+  /**
+   * Jump to original Logcat line (indexes into state.sourceLines / inputRaw).
+   * Shows context in Issues panel and selects text in the input pane when possible.
+   */
+  function jumpToLogLine(lineIndex, lineEnd) {
+    const lines = getSourceLines();
+    if (!lines.length || lineIndex == null || lineIndex < 0) return;
+
+    const end = lineEnd != null ? lineEnd : lineIndex;
+    LSUI.switchTab('issues');
+    LSUI.renderLogContext(lines, lineIndex, end);
+
+    const ta = inputEl();
+    if (!ta) return;
+
+    // Only select inside textarea if the full source is displayed (not truncated)
+    const displayed = ta.value || '';
+    if (
+      displayed.includes('… [truncated') ||
+      displayed.includes('full export JSON is not shown')
+    ) {
+      return;
+    }
+
+    if (typeof LSLogIndex === 'undefined') return;
+    const startOff = LSLogIndex.lineOffset(lines, lineIndex);
+    const endOff =
+      LSLogIndex.lineOffset(lines, end) + (lines[end] ? lines[end].length : 0);
+    try {
+      ta.focus();
+      ta.setSelectionRange(startOff, endOff);
+      const before = displayed.slice(0, startOff);
+      const lineHeight = 16;
+      const approxLine = before.split(/\n/).length;
+      ta.scrollTop = Math.max(0, (approxLine - 5) * lineHeight);
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function buildRawBlocks(parserBlocks, apiCalls) {
@@ -279,14 +405,114 @@ const LSApp = (() => {
     return out.length ? out : fromParser;
   }
 
-  function processInput(raw, options) {
+  function getSourceLines() {
+    if (!state.sourceLines || !state.sourceLines.length) {
+      if (!state.inputRaw) {
+        state.sourceLines = [];
+      } else {
+        state.sourceLines = String(state.inputRaw).split(/\r\n|\r|\n/);
+      }
+    }
+    return state.sourceLines;
+  }
+
+  function setInputPreview(text, prepared) {
+    const el = inputEl();
+    if (!el) return;
+    const INPUT_DISPLAY_MAX = 80000;
+    if (prepared && prepared.studioExport) {
+      const header =
+        `[Android Studio .logcat — ${prepared.messageCount} messages · ${LSUtils.formatBytes(
+          prepared.originalSize
+        )}]\n` +
+        `Message lines loaded for processing (full export JSON is not shown).\n\n`;
+      const body =
+        text.length > INPUT_DISPLAY_MAX
+          ? text.slice(0, INPUT_DISPLAY_MAX) +
+            '\n\n… [truncated in input pane — full data still processed]'
+          : text;
+      el.value = header + body;
+      return;
+    }
+    if (text.length > INPUT_DISPLAY_MAX) {
+      el.value =
+        text.slice(0, INPUT_DISPLAY_MAX) +
+        `\n\n… [truncated in input pane — ${LSUtils.formatBytes(text.length)} total still processed]`;
+      return;
+    }
+    el.value = text;
+  }
+
+  function resetWorkspace(options) {
     const opts = options || {};
+    if (inputEl() && opts.clearInput !== false) inputEl().value = '';
+    state.inputRaw = '';
+    state.sourceLines = [];
+    state.blocks = [];
+    state.activeBlock = -1;
+    state.apiCalls = [];
+    state.activeApi = -1;
+    state.inputType = 'empty';
+    state.receiptHtml = null;
+    state.issueReport = null;
+    state.deviceInfo = null;
+    state.activeIssueCategory = null;
+    state.activeIssueGroup = null;
+    state.formatted = '';
+    state.value = null;
+    state._pendingInput = null;
+    applyFormatted('', null);
+    LSUI.renderBlockChips([], -1, selectBlock);
+    LSUI.renderApiCalls([], -1, selectApiCall);
+    LSUI.clearIssuesUi();
+    LSUI.setValidationBanner({ skip: true });
+    LSUI.setReceiptButtonVisible(false);
+    const left = document.getElementById('compare-left');
+    const right = document.getElementById('compare-right');
+    if (left) left.value = '';
+    if (right) right.value = '';
+    LSCompare.renderDiff(document.getElementById('compare-diff'), null);
+    const label = document.getElementById('search-count');
+    if (label) label.textContent = '';
+    updateStatusBar();
+  }
+
+  function cancelProcessing() {
+    if (!state.processing) {
+      LSUI.hideBusyOverlay();
+      return;
+    }
+    state.abortProcessing = true;
+    state._pendingInput = null;
+    state.processToken += 1;
+    LSUI.updateBusyOverlay('Cancelling…', 'Stopping');
+  }
+
+  function assertNotAborted(token) {
+    if (state.abortProcessing || token !== state.processToken) {
+      const err = new Error('ABORTED');
+      err.code = 'ABORTED';
+      throw err;
+    }
+  }
+
+  async function yieldCheck(token, ms) {
+    await LSUtils.yieldToMain(ms);
+    assertNotAborted(token);
+  }
+
+  async function processInput(raw, options) {
+    const opts = options || {};
+    if (state.processing && !opts.force) {
+      state._pendingInput = { raw, options: opts };
+      return;
+    }
+
     let incoming;
     if (raw != null) {
       incoming = raw;
     } else {
       const elVal = inputEl() ? inputEl().value : '';
-      // Prefer full in-memory text when the input pane is showing a truncated preview
       if (
         state.inputRaw &&
         elVal &&
@@ -299,159 +525,244 @@ const LSApp = (() => {
     }
 
     if (!String(incoming || '').trim()) {
-      state.blocks = [];
-      state.activeBlock = -1;
-      state.apiCalls = [];
-      state.activeApi = -1;
-      state.inputType = 'empty';
-      state.inputRaw = '';
-      if (inputEl() && raw != null) inputEl().value = '';
-      applyFormatted('', null);
-      LSUI.renderBlockChips([], -1, selectBlock);
-      LSUI.renderApiCalls([], -1, selectApiCall);
-      LSUI.setValidationBanner({ skip: true });
-      updateStatusBar();
+      resetWorkspace({ clearInput: raw != null });
       return;
     }
 
-    // Expand Android Studio .logcat once (avoids treating multi‑MB export as one JSON)
-    const prepared =
-      typeof LSParser.prepareInput === 'function'
-        ? LSParser.prepareInput(incoming)
-        : { workText: String(incoming), studioExport: false, messageCount: 0, originalSize: String(incoming).length };
+    state.processing = true;
+    state.abortProcessing = false;
+    state._pendingInput = null;
+    state.processToken += 1;
+    const token = state.processToken;
 
-    const text = prepared.workText;
-    state.inputRaw = text || '';
+    const incomingSize = String(incoming).length;
+    const isLarge = incomingSize > 80000 || opts.fromFile || opts.fromPaste;
+    const showBusy = isLarge || incomingSize > 40000;
 
-    // Never dump multi‑MB studio JSON into the textarea (Chrome hangs)
-    if (inputEl() && (raw != null || prepared.studioExport)) {
-      const INPUT_DISPLAY_MAX = 120000;
-      if (prepared.studioExport) {
-        const header =
-          `[Android Studio .logcat — ${prepared.messageCount} messages · ${LSUtils.formatBytes(
-            prepared.originalSize
-          )}]\n` +
-          `Message lines loaded for processing (full export JSON is not shown).\n\n`;
-        const body =
-          text.length > INPUT_DISPLAY_MAX
-            ? text.slice(0, INPUT_DISPLAY_MAX) + '\n\n… [truncated in input pane — full data still processed]'
-            : text;
-        inputEl().value = header + body;
-      } else if (text.length > INPUT_DISPLAY_MAX) {
-        inputEl().value =
-          text.slice(0, INPUT_DISPLAY_MAX) +
-          `\n\n… [truncated in input pane — ${LSUtils.formatBytes(text.length)} total still processed]`;
-      } else if (raw != null) {
-        inputEl().value = text;
-      }
+    if (showBusy) {
+      const title = opts.fromFile ? `Opening ${opts.fromFile}` : 'Processing Logcat…';
+      const detail = opts.fromFile
+        ? `Reading ${LSUtils.formatBytes(incomingSize)}…`
+        : `Preparing ${LSUtils.formatBytes(incomingSize)}…`;
+      LSUI.showBusyOverlay(title, detail);
     }
 
-    const runHeavy = () => {
-      state.processing = true;
+    try {
+      if (showBusy) await yieldCheck(token, 20);
+
+      let prepared;
       try {
-        const largeStudio =
-          prepared.studioExport &&
-          (prepared.messageCount > 1500 || text.length > 400000);
-
-        let result;
-        if (largeStudio) {
-          // Fast path: skip full JSON-line merge (was hanging Chrome on multi‑MB exports).
-          // API Calls + their JSON bodies are extracted instead.
-          result = {
-            type: 'logcat',
-            blocks: [],
-            primaryIndex: -1,
-            cleaned: ''
-          };
-        } else {
-          result = LSParser.process(text);
-        }
-        state.inputType = prepared.studioExport ? 'logcat' : result.type;
-
-        try {
-          state.apiCalls =
-            typeof LSApiExtractor !== 'undefined' ? LSApiExtractor.extract(text) : [];
-        } catch (_) {
-          state.apiCalls = [];
-        }
-        state.activeApi = state.apiCalls.length ? 0 : -1;
-
-        state.blocks = buildRawBlocks(result.blocks, state.apiCalls);
-        let primaryIndex = result.primaryIndex;
-        if (primaryIndex < 0 && state.blocks.length) primaryIndex = 0;
-        if (state.apiCalls.length && state.blocks.length && state.blocks[0].source === 'api') {
-          primaryIndex = 0;
-        }
-
-        refreshApiPanel();
-
-        if (!opts.skipHistory && (state.blocks.length || state.apiCalls.length)) {
-          const previewSource = state.blocks[primaryIndex >= 0 ? primaryIndex : 0];
-          const apiPreview =
-            state.apiCalls[0] && typeof LSApiExtractor !== 'undefined'
-              ? LSApiExtractor.summarize(state.apiCalls[0])
-              : '';
-          const histText = text.length > 80000 ? text.slice(0, 80000) : text;
-          LSStorage.addHistory({
-            text: histText,
-            preview: previewSource ? previewSource.raw : apiPreview || text,
-            type: state.inputType
-          });
-        }
-
-        if (primaryIndex >= 0 && state.blocks.length) {
-          selectBlock(primaryIndex);
-        } else {
-          LSUI.renderBlockChips([], -1, selectBlock);
-          applyFormatted('', null);
-          if (state.apiCalls.length) {
-            LSUI.switchTab('api');
-            if (!opts.fromFile) {
-              LSUtils.toast(`Found ${state.apiCalls.length} API call(s)`, 'success');
-            }
-          } else if (!opts.fromFile) {
-            LSUtils.toast('No JSON or API calls found in input', 'warn');
-          }
-        }
-
-        if (prepared.studioExport && state.apiCalls.length) {
-          LSUI.switchTab('api');
-        }
-
-        if (opts.fromFile) {
-          const name = opts.fromFile;
-          if (state.apiCalls.length) {
-            LSUI.switchTab('api');
-            LSUtils.toast(`Opened ${name} · ${state.apiCalls.length} API call(s)`, 'success');
-          } else if (state.blocks.length) {
-            LSUI.switchTab('raw');
-            LSUtils.toast(`Opened ${name} · ${state.blocks.length} JSON`, 'success');
-          } else {
-            LSUtils.toast(`Opened ${name} — no API/JSON found`, 'warn');
-          }
-          if (opts.focusInput && inputEl()) inputEl().focus();
-        }
+        if (showBusy) LSUI.updateBusyOverlay('Parsing Logcat…');
+        prepared =
+          typeof LSParser.prepareInput === 'function'
+            ? LSParser.prepareInput(incoming)
+            : {
+                workText: String(incoming),
+                studioExport: false,
+                messageCount: 0,
+                originalSize: incomingSize,
+                deviceMeta: null
+              };
       } catch (err) {
         console.error(err);
-        LSUtils.toast('Processing failed — file may be too large or invalid', 'error');
-      } finally {
-        state.processing = false;
-        updateStatusBar();
+        LSUtils.toast('Failed to parse Logcat — file may be too large or invalid', 'error');
+        return;
       }
-    };
 
-    // Yield to the browser so the UI can paint before heavy parse work
-    const heavy = prepared.studioExport || text.length > 150000;
-    if (heavy) {
-      LSUtils.toast(
-        prepared.studioExport
-          ? `Processing ${prepared.messageCount} log messages…`
-          : 'Processing large file…',
-        'info'
-      );
-      setTimeout(runHeavy, 30);
-    } else {
-      runHeavy();
+      assertNotAborted(token);
+
+      const text = prepared.workText || '';
+      state.inputRaw = text;
+      const largeWork =
+        prepared.studioExport ||
+        text.length > 200000 ||
+        (prepared.messageCount && prepared.messageCount > 2000);
+      state.sourceLines = largeWork ? [] : text ? text.split(/\r\n|\r|\n/) : [];
+
+      if (inputEl() && (raw != null || prepared.studioExport || largeWork || opts.fromPaste)) {
+        setInputPreview(text, prepared);
+      }
+
+      if (showBusy || largeWork) {
+        LSUI.showBusyOverlay(
+          prepared.studioExport
+            ? `Processing ${prepared.messageCount} messages…`
+            : 'Processing Logcat…',
+          'Extracting API calls…'
+        );
+      }
+
+      await yieldCheck(token, largeWork ? 30 : 0);
+
+      const largeStudio =
+        prepared.studioExport &&
+        (prepared.messageCount > 1500 || text.length > 400000);
+
+      let result;
+      if (largeStudio || largeWork) {
+        result = {
+          type: 'logcat',
+          blocks: [],
+          primaryIndex: -1,
+          cleaned: ''
+        };
+      } else {
+        if (showBusy) LSUI.updateBusyOverlay('Extracting JSON…');
+        result = LSParser.process(text);
+      }
+      state.inputType = prepared.studioExport ? 'logcat' : result.type;
+
+      await yieldCheck(token, largeWork ? 20 : 0);
+      if (showBusy) LSUI.updateBusyOverlay('Building line index…');
+
+      const linesForWork = largeWork ? text.split(/\r\n|\r|\n/) : getSourceLines();
+      if (largeWork) state.sourceLines = linesForWork;
+
+      await yieldCheck(token, largeWork ? 20 : 0);
+      if (showBusy) LSUI.updateBusyOverlay('Extracting API calls…');
+
+      try {
+        state.apiCalls =
+          typeof LSApiExtractor !== 'undefined'
+            ? LSApiExtractor.extract(text, {
+                lines: linesForWork,
+                maxCalls: largeWork ? 300 : 500
+              })
+            : [];
+      } catch (_) {
+        state.apiCalls = [];
+      }
+      state.activeApi = state.apiCalls.length ? 0 : -1;
+
+      await yieldCheck(token, largeWork ? 20 : 0);
+      if (showBusy) LSUI.updateBusyOverlay('Reading device info…');
+
+      try {
+        state.deviceInfo =
+          typeof LSDeviceInfo !== 'undefined'
+            ? LSDeviceInfo.extract(text, {
+                deviceMeta: prepared.deviceMeta || null,
+                lines: linesForWork,
+                lineLimit: largeWork ? 8000 : 20000
+              })
+            : null;
+      } catch (_) {
+        state.deviceInfo = null;
+      }
+
+      await yieldCheck(token, largeWork ? 20 : 0);
+      if (showBusy) LSUI.updateBusyOverlay('Detecting issues…');
+
+      try {
+        state.issueReport =
+          typeof LSIssueDetector !== 'undefined'
+            ? LSIssueDetector.detect(text, {
+                apiCalls: state.apiCalls,
+                lines: linesForWork
+              })
+            : null;
+      } catch (err) {
+        console.error(err);
+        state.issueReport = null;
+      }
+      state.activeIssueCategory = null;
+      state.activeIssueGroup = null;
+
+      await yieldCheck(token, largeWork ? 20 : 0);
+      if (showBusy) LSUI.updateBusyOverlay('Updating views…');
+
+      refreshIssuesPanel();
+
+      const issueTotal = state.issueReport
+        ? Object.keys(state.issueReport.summary || {}).reduce(
+            (n, k) => n + (state.issueReport.summary[k] || 0),
+            0
+          )
+        : 0;
+
+      state.blocks = buildRawBlocks(result.blocks, state.apiCalls);
+      let primaryIndex = result.primaryIndex;
+      if (primaryIndex < 0 && state.blocks.length) primaryIndex = 0;
+      if (state.apiCalls.length && state.blocks.length && state.blocks[0].source === 'api') {
+        primaryIndex = 0;
+      }
+
+      refreshApiPanel();
+
+      if (!opts.skipHistory && (state.blocks.length || state.apiCalls.length || issueTotal)) {
+        const previewSource = state.blocks[primaryIndex >= 0 ? primaryIndex : 0];
+        const apiPreview =
+          state.apiCalls[0] && typeof LSApiExtractor !== 'undefined'
+            ? LSApiExtractor.summarize(state.apiCalls[0])
+            : '';
+        const histText = text.length > 50000 ? text.slice(0, 50000) : text;
+        LSStorage.addHistory({
+          text: histText,
+          preview: previewSource ? previewSource.raw : apiPreview || text,
+          type: state.inputType
+        });
+      }
+
+      assertNotAborted(token);
+
+      if (primaryIndex >= 0 && state.blocks.length) {
+        selectBlock(primaryIndex);
+      } else {
+        LSUI.renderBlockChips([], -1, selectBlock);
+        applyFormatted('', null);
+        if (state.apiCalls.length) {
+          LSUI.switchTab('api');
+          if (!opts.fromFile) {
+            LSUtils.toast(`Found ${state.apiCalls.length} API call(s)`, 'success');
+          }
+        } else if (!opts.fromFile && !issueTotal) {
+          LSUtils.toast('No JSON or API calls found in input', 'warn');
+        }
+      }
+
+      if (prepared.studioExport && state.apiCalls.length) {
+        LSUI.switchTab('api');
+      }
+
+      if (opts.fromFile) {
+        const name = opts.fromFile;
+        if (state.apiCalls.length) {
+          LSUI.switchTab('api');
+          LSUtils.toast(`Opened ${name} · ${state.apiCalls.length} API call(s)`, 'success');
+        } else if (state.blocks.length) {
+          LSUI.switchTab('raw');
+          LSUtils.toast(`Opened ${name} · ${state.blocks.length} JSON`, 'success');
+        } else if (issueTotal) {
+          LSUI.switchTab('issues');
+          LSUtils.toast(`Opened ${name} · ${issueTotal} issue(s)`, 'success');
+        } else {
+          LSUtils.toast(`Opened ${name} — no API/JSON found`, 'warn');
+        }
+        if (opts.focusInput && inputEl()) inputEl().focus();
+      } else if (issueTotal && !state.blocks.length && !state.apiCalls.length) {
+        LSUI.switchTab('issues');
+        LSUtils.toast(`Detected ${issueTotal} issue(s)`, 'info');
+      }
+    } catch (err) {
+      if (err && err.code === 'ABORTED') {
+        resetWorkspace({ clearInput: true });
+        LSUI.switchTab('raw');
+        LSUtils.toast('Processing cancelled — ready for a fresh start', 'info');
+        return;
+      }
+      console.error(err);
+      LSUtils.toast('Processing failed — file may be too large or invalid', 'error');
+    } finally {
+      const aborted = state.abortProcessing || token !== state.processToken;
+      state.processing = false;
+      state.abortProcessing = false;
+      LSUI.hideBusyOverlay();
+      updateStatusBar();
+      if (!aborted && state._pendingInput) {
+        const pending = state._pendingInput;
+        state._pendingInput = null;
+        setTimeout(() => processInput(pending.raw, pending.options), 0);
+      }
     }
   }
 
@@ -589,30 +900,34 @@ const LSApp = (() => {
   }
 
   function clearAll() {
-    if (inputEl()) inputEl().value = '';
-    state.inputRaw = '';
-    state.blocks = [];
-    state.activeBlock = -1;
-    state.inputType = 'empty';
-    state.receiptHtml = null;
-    applyFormatted('', null);
-    LSUI.renderBlockChips([], -1, selectBlock);
-    LSUI.setValidationBanner({ skip: true });
-    LSUI.setReceiptButtonVisible(false);
-    const left = document.getElementById('compare-left');
-    const right = document.getElementById('compare-right');
-    if (left) left.value = '';
-    if (right) right.value = '';
-    LSCompare.renderDiff(document.getElementById('compare-diff'), null);
-    updateStatusBar();
+    if (state.processing) {
+      cancelProcessing();
+      return;
+    }
+    resetWorkspace({ clearInput: true });
   }
 
   function runSearch() {
-    const query = (document.getElementById('search-input') && document.getElementById('search-input').value) || '';
-    const regex = !!(document.getElementById('search-regex') && document.getElementById('search-regex').checked);
-    const caseSensitive = !!(document.getElementById('search-case') && document.getElementById('search-case').checked);
-    const keys = !!(document.getElementById('search-keys') && document.getElementById('search-keys').checked);
-    const values = !!(document.getElementById('search-values') && document.getElementById('search-values').checked);
+    const query =
+      (document.getElementById('search-input') &&
+        document.getElementById('search-input').value) ||
+      '';
+    const regex = !!(
+      document.getElementById('search-regex') &&
+      document.getElementById('search-regex').checked
+    );
+    const caseSensitive = !!(
+      document.getElementById('search-case') &&
+      document.getElementById('search-case').checked
+    );
+    const keys = !!(
+      document.getElementById('search-keys') &&
+      document.getElementById('search-keys').checked
+    );
+    const values = !!(
+      document.getElementById('search-values') &&
+      document.getElementById('search-values').checked
+    );
 
     const count = LSTree.setSearch({ query, regex, caseSensitive, keys, values });
     const rawCount = LSUI.highlightRawSearch(rawEl(), query, { regex, caseSensitive });
@@ -663,22 +978,24 @@ const LSApp = (() => {
     }
 
     const sizeMb = file.size / (1024 * 1024);
-    if (sizeMb > 1.5) {
-      LSUtils.toast(`Reading ${file.name} (${sizeMb.toFixed(1)} MB)…`, 'info');
+    if (sizeMb > 0.4 || file.size > 80000) {
+      LSUI.showBusyOverlay(`Opening ${file.name}`, `Reading ${sizeMb.toFixed(1)} MB…`);
     }
 
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result || '');
-      // Yield so Chrome can paint before parse (prevents Page Unresponsive)
       setTimeout(() => {
         processInput(text, {
           fromFile: file.name,
           focusInput: opts.focusInput
         });
-      }, 20);
+      }, sizeMb > 1 ? 40 : 20);
     };
-    reader.onerror = () => LSUtils.toast(`Failed to read ${file.name}`, 'error');
+    reader.onerror = () => {
+      LSUI.hideBusyOverlay();
+      LSUtils.toast(`Failed to read ${file.name}`, 'error');
+    };
     reader.readAsText(file);
   }
 
@@ -706,9 +1023,29 @@ const LSApp = (() => {
   function bindEvents() {
     const input = inputEl();
     if (input) {
-      const onPasteProcess = LSUtils.debounce(() => processInput(), 180);
-      input.addEventListener('paste', () => {
-        setTimeout(() => processInput(), 0);
+      const LARGE_PASTE = 100000;
+      const onPasteProcess = LSUtils.debounce(() => {
+        if (state.processing) return;
+        // Skip auto-process when input is a truncated preview of a large load
+        const v = input.value || '';
+        if (v.includes('… [truncated') || v.includes('full export JSON is not shown')) return;
+        processInput();
+      }, 400);
+
+      input.addEventListener('paste', (e) => {
+        try {
+          const clip = e.clipboardData && e.clipboardData.getData('text');
+          if (clip && clip.length >= LARGE_PASTE) {
+            e.preventDefault();
+            processInput(clip, { fromPaste: true });
+            return;
+          }
+        } catch (_) {
+          /* fall through */
+        }
+        setTimeout(() => {
+          if (!state.processing) processInput();
+        }, 50);
       });
       input.addEventListener('input', onPasteProcess);
     }
@@ -716,6 +1053,11 @@ const LSApp = (() => {
     document.getElementById('btn-process')?.addEventListener('click', () => processInput());
     document.getElementById('btn-process-pane')?.addEventListener('click', () => processInput());
     document.getElementById('btn-clear')?.addEventListener('click', clearAll);
+    document.getElementById('btn-busy-cancel')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelProcessing();
+    });
     document.getElementById('btn-beautify')?.addEventListener('click', beautifyCurrent);
     document.getElementById('btn-minify')?.addEventListener('click', minifyCurrent);
     document.getElementById('btn-repair')?.addEventListener('click', repairCurrent);
@@ -745,6 +1087,8 @@ const LSApp = (() => {
 
     document.getElementById('btn-expand-all')?.addEventListener('click', () => LSTree.expandAll());
     document.getElementById('btn-collapse-all')?.addEventListener('click', () => LSTree.collapseAll());
+    document.getElementById('btn-raw-copy')?.addEventListener('click', () => copyFormatted());
+    document.getElementById('btn-tree-copy')?.addEventListener('click', () => copyFormatted());
     document.getElementById('btn-full-view')?.addEventListener('click', () => LSUI.toggleFullView());
     bindApiDetailActions();
 
@@ -781,6 +1125,9 @@ const LSApp = (() => {
         LSUI.switchTab(tab.dataset.tab);
         if (tab.dataset.tab === 'api') {
           refreshApiPanel();
+        }
+        if (tab.dataset.tab === 'issues') {
+          refreshIssuesPanel();
         }
       });
     });
@@ -821,7 +1168,7 @@ const LSApp = (() => {
     document.getElementById('btn-paste')?.addEventListener('click', async () => {
       try {
         const text = await navigator.clipboard.readText();
-        processInput(text);
+        processInput(text, { fromPaste: true });
         LSUtils.toast('Pasted from clipboard', 'success');
       } catch (_) {
         inputEl()?.focus();
@@ -886,7 +1233,7 @@ const LSApp = (() => {
         return;
       }
       const text = e.dataTransfer && e.dataTransfer.getData('text');
-      if (text) processInput(text);
+      if (text) processInput(text, { fromPaste: true });
     });
 
     // Also accept drops directly on the input editor
@@ -960,6 +1307,10 @@ const LSApp = (() => {
       }
 
       if (e.key === 'Escape') {
+        if (state.processing || document.body.classList.contains('ls-busy')) {
+          cancelProcessing();
+          return;
+        }
         if (LSUI.isFullView && LSUI.isFullView()) {
           LSUI.exitFullView();
           return;
@@ -1007,6 +1358,7 @@ const LSApp = (() => {
     if (sel) sel.value = indent;
 
     LSCompare.renderDiff(document.getElementById('compare-diff'), null);
+    LSUI.clearIssuesUi();
     LSUI.setReceiptButtonVisible(false);
     updateStatusBar();
   }
