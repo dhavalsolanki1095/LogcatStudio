@@ -1,0 +1,130 @@
+/**
+ * Logcat Studio — Light theme overrides
+ * Applied when body has class "theme-light"
+ */
+
+body.theme-light {
+  --ls-bg: #ffffff;
+  --ls-bg-elevated: #f3f3f3;
+  --ls-bg-panel: #ffffff;
+  --ls-bg-toolbar: #f0f0f0;
+  --ls-bg-status: #007acc;
+  --ls-bg-input: #ffffff;
+  --ls-border: #d0d0d0;
+  --ls-text: #333333;
+  --ls-text-muted: #6e6e6e;
+  --ls-text-bright: #1a1a1a;
+  --ls-accent: #0078d4;
+  --ls-accent-hover: #106ebe;
+  --ls-key: #0451a5;
+  --ls-string: #a31515;
+  --ls-number: #098658;
+  --ls-boolean: #0000ff;
+  --ls-null: #0000ff;
+  --ls-highlight: #add6ff;
+  --ls-match: #ffeeba;
+  --ls-added: #acf2bd;
+  --ls-removed: #fdb8c0;
+  --ls-changed: #ffe08a;
+}
+
+body.theme-light {
+  color: var(--ls-text);
+  background: var(--ls-bg);
+}
+
+body.theme-light .toolbar-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+body.theme-light .toolbar-input,
+body.theme-light .toolbar-select,
+body.theme-light .compare-editor,
+body.theme-light .editor-area {
+  background: #fff;
+  border-color: var(--ls-border);
+  color: var(--ls-text);
+}
+
+body.theme-light .json-highlight {
+  background: #fff;
+}
+
+body.theme-light .json-editor-stack > .editor-area.json-colorized::selection {
+  background: rgba(0, 120, 212, 0.28);
+}
+
+body.theme-light .toolbar-menu,
+body.theme-light #history-panel,
+body.theme-light .modal {
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+body.theme-light .toolbar-row-secondary {
+  background: #f8f8f8;
+}
+
+body.theme-light .tree-row:hover,
+body.theme-light .history-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.theme-light .pane-header-btn:hover,
+body.theme-light .modal-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+body.theme-light .toast-msg {
+  background: #fff;
+  color: #333;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+body.theme-light #drop-overlay {
+  background: rgba(0, 120, 212, 0.85);
+}
+
+body.theme-light .busy-overlay {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+body.theme-light .busy-card {
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+body.theme-light .modal-body {
+  background: #c8c8c8;
+}
+
+body.theme-light .block-chip {
+  background: #fff;
+}
+
+body.theme-light .tree-badge {
+  background: #eee;
+}
+
+body.theme-light .jv-line:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.theme-light .jv-gutter,
+body.theme-light .api-json-view .jv-gutter {
+  background: #f3f3f3;
+}
+
+body.theme-light .jv-ellipsis {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+body.theme-light .json-view,
+body.theme-light .api-json-view {
+  background: #fff;
+}
+
+body.theme-light #btn-full-view.active {
+  background: var(--ls-accent);
+  color: #fff;
+}
