@@ -1,6 +1,0 @@
-D/OkHttp: --> POST https://api.pos.example.com/v2/checkout
-D/OkHttp: Content-Type: application/json; charset=UTF-8
-D/OkHttp: Content-Length: 312
-D/OkHttp: Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-D/OkHttp: {"ticket":{"id":"TCK-9921","storeId":"ST-01","cashier":"Maya","items":[{"id":1,"name":"Espresso","qty":1,"price":2.75,"modifiers":[{"name":"Extra Shot","price":0.75}]},{"id":2,"name":"Croissant","qty":2,"price":3.50}],"subtotal":10.50,"tax":0.84,"total":11.34,"currency":"USD","timestamp":1710495000},"device":{"model":"Pixel 7","os":"14","appVersion":"3.2.1"}}
-D/OkHttp: --> END POST

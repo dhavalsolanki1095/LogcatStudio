@@ -1,4 +1,0 @@
-11:46:32.843  2629-3377  OkHttp                  com...ointdev.datapoint content-type: application/json
-11:46:32.850  2629-3377  OkHttp                  com...ointdev.datapoint {"id":1342739,"id_external":"1234580822","name":"test 0545","open":1,"totals":{"discounts":424999,"sub_total":0},"_embedded":{"items":[{"id":100705,"name":"Suite VIP 3","local_created_datetime"
-11:46:32.850  2629-3377  OkHttp                  com...ointdev.datapoint :"2026-08-05 08:15:57","modifiers":[],"discounts":[]}]},"can_pay":0,"status":"OPEN"}
-11:46:32.850  2629-3377  OkHttp                  com...ointdev.datapoint <-- END HTTP (4534-byte body)

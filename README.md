@@ -11,10 +11,10 @@ Paste Logcat / OkHttp / Retrofit / Timber / Volley / Ktor output — get clean, 
 ## Quick start
 
 1. Open the [live demo](https://dhavalsolanki1095.github.io/LogcatStudio/) or open `index.html` in a modern browser (Chrome, Edge, Firefox).
-2. Paste Logcat output into the left pane (or use **Samples**).
+2. Paste Logcat output into the left pane (or open / drag & drop a `.logcat` / `.log` / `.txt` / `.json` file).
 3. JSON is cleaned, validated, beautified, and shown in Raw / Tree views.
 
-> **Samples tip:** Loading sample files via the Samples menu works best when served over HTTP (GitHub Pages or any local static server). Opening `index.html` directly still supports paste, open file, and drag-and-drop.
+Opening `index.html` directly supports paste, open file, and drag-and-drop. A local static server is optional for convenience.
 
 ### Local server (optional)
 
@@ -86,10 +86,6 @@ LogcatStudio/
 │   ├── ui.js
 │   ├── highlighter.js
 │   └── utils.js
-└── samples/
-    ├── sample-logcat.txt
-    ├── sample-request.txt
-    └── sample-response.txt
 ```
 
 ## GitHub Pages

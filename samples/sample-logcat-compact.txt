@@ -1,8 +1,0 @@
-11:46:27.312 TicketListFragment       I  Swipe refresh triggered
-11:46:27.348 OkHttp                   I  --> GET https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1
-11:46:27.853 OkHttp                   I  <-- 200 https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1 (503ms)
-11:46:27.854 OkHttp                   I  content-type: application/json
-11:46:27.862 OkHttp                   I  {"current_page":1,"data":[{"id":1342899,"name":"","open":1,"status":"OPEN","totals":{"discounts":0,"items":0,"other_
-11:46:27.862 OkHttp                   I  charges":0,"sub_total":1081,"total":1081,"due":1081}},{"id":1342738,"name":"test 0455","opened_at":"2026-08-05 11:26:10","c
-11:46:27.862 OkHttp                   I  losed_at":null,"open":1,"totals":{"total":8632},"status":"OPEN"}],"per_page":10000,"total":2}
-11:46:27.863 OkHttp                   I  <-- END HTTP (9594-byte body)

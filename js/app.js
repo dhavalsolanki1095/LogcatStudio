@@ -644,79 +644,6 @@ const LSApp = (() => {
     if (left && state.formatted) left.value = state.formatted;
   }
 
-  const EMBEDDED_SAMPLES = {
-    logcat: `11:46:27.862 OkHttp                   I  {"current_page":1,"data":[{"id":1342899,"name":"","open":1,"status":"OPEN","totals":{"discounts":0,"items":0,"other_
-11:46:27.862 OkHttp                   I  charges":0,"sub_total":1081,"total":1081,"due":1081}},{"id":1342738,"name":"test 0455","opened_at":"2026-08-05 11:26:10","c
-11:46:27.862 OkHttp                   I  losed_at":null,"open":1,"totals":{"total":8632},"status":"OPEN"}],"per_page":10000,"total":2}
-11:46:27.863 OkHttp                   I  <-- END HTTP`,
-    messageOnly: `--> END GET
-<-- 200 https://devapi.tabpoint.us/v33/locations/4000743/tickets?page=1 (503ms)
-content-type: application/json
-
-{"current_page":1,"data":[{"id":1342899,"name":"","open":1,"status":"OPEN","totals":{"discounts":0,"items":0,"other_
-charges":0,"sub_total":1081,"total":1081,"due":1081}},{"id":1342738,"name":"test 0455","opened_at":"2026-08-05 11:26:10","c
-losed_at":null,"open":1,"totals":{"total":8632},"status":"OPEN"}],"per_page":10000,"total":2}
-<-- END HTTP (9594-byte body)`,
-    api: `--> GET https://devapi.tabpoint.us/v33/locations/4000743/tickets?employee_id=9698&open=1&page=1
-Authorization: Bearer eyJdemo.token
---> END GET
-<-- 200 https://devapi.tabpoint.us/v33/locations/4000743/tickets?employee_id=9698&open=1&page=1 (484ms)
-content-type: application/json
-
-{"current_page":1,"data":[{"id":1342901,"name":"test 0247","status":"OPEN","totals":{"total":540,"due":540}}],"total":1}
-<-- END HTTP (1712-byte body)
---> GET https://devapi.tabpoint.us/v33/ping
---> END GET
-<-- 200 https://devapi.tabpoint.us/v33/ping (389ms)
-content-type: text/html
-
-pong
-<-- END HTTP (7-byte body)`,
-    formats: `2021-10-04 11:00:14.234 27217-3814  ExampleTag1             com.example.app1                     D  {"format":1,"ok":true}
-27217-3814  ExampleTag1             com.example.app1                     I  {"format":2,"ok":true}
-27217-3814  com.example.app1                     W  {"format":3,"ok":true}
-27217-3814  com.example.app1                    {"format":4,"ok":true}
-com.example.app1                    {"format":5,"ok":true}
-{"format":6,"ok":true}
-11:46:27.862 OkHttp                   I  {"current_page":1,"data":[{"id":1,"totals":{"other_
-11:46:27.862 OkHttp                   I  charges":0,"total":1081},"status":"OPEN"}],"total":1}`,
-    request: `D/OkHttp: --> POST https://api.pos.example.com/v2/checkout\nD/OkHttp: Content-Type: application/json\nD/OkHttp: {"ticket":{"id":"TCK-9921","items":[{"name":"Espresso","qty":1,"price":2.75}],"total":11.34},"device":{"model":"Pixel 7","os":"14"}}`,
-    response: `I/Retrofit: <-- 200 OK https://api.pos.example.com/v2/checkout (245ms)\nI/Retrofit: {"success":true,"data":{"transactionId":"TXN-44102","amount":11.34,"receipt":{"receipt_html":"<div style='font-family:monospace;width:280px;padding:12px'><h2 style='text-align:center'>Cafe Demo</h2><p style='text-align:center'>Order TCK-9921</p><hr/><p>Espresso x1 ........ $2.75</p><p><b>TOTAL ............. $11.34</b></p></div>"},"createdAt":1710495000,"uuid":"a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"}}`,
-    json: `{"app":"Logcat Studio Demo","version":"1.0.0","features":{"smartPaste":true,"treeView":true},"theme":{"primary":"#007acc"},"meta":{"generatedAt":1710495600,"requestId":"550e8400-e29b-41d4-a716-446655440000","nullable":null}}`
-  };
-
-  function loadSample(name) {
-    const map = {
-      logcat: 'samples/sample-logcat.txt',
-      formats: 'samples/sample-all-formats.txt',
-      messageOnly: 'samples/sample-message-only-split.txt',
-      api: 'samples/sample-api-calls.txt',
-      request: 'samples/sample-request.txt',
-      response: 'samples/sample-response.txt'
-    };
-    const url = map[name];
-    if (!url) return;
-
-    const apply = (text) => {
-      processInput(text);
-      if (name === 'api' && state.apiCalls.length) {
-        LSUI.switchTab('api');
-      }
-      LSUtils.toast(`Loaded sample: ${name}`, 'success');
-    };
-
-    fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
-      .then(apply)
-      .catch(() => {
-        if (EMBEDDED_SAMPLES[name]) apply(EMBEDDED_SAMPLES[name]);
-        else LSUtils.toast('Could not load sample', 'warn');
-      });
-  }
-
   function isSupportedDropFile(file) {
     if (!file) return false;
     const name = String(file.name || '').toLowerCase();
@@ -881,32 +808,6 @@ com.example.app1                    {"format":5,"ok":true}
     // Compare
     document.getElementById('btn-compare-run')?.addEventListener('click', runCompare);
     document.getElementById('btn-compare-use-current')?.addEventListener('click', useCurrentAsCompareLeft);
-
-    // Samples menu
-    document.getElementById('btn-sample-logcat')?.addEventListener('click', () => {
-      loadSample('logcat');
-      LSUI.closeMenus();
-    });
-    document.getElementById('btn-sample-formats')?.addEventListener('click', () => {
-      loadSample('formats');
-      LSUI.closeMenus();
-    });
-    document.getElementById('btn-sample-message-only')?.addEventListener('click', () => {
-      loadSample('messageOnly');
-      LSUI.closeMenus();
-    });
-    document.getElementById('btn-sample-api')?.addEventListener('click', () => {
-      loadSample('api');
-      LSUI.closeMenus();
-    });
-    document.getElementById('btn-sample-request')?.addEventListener('click', () => {
-      loadSample('request');
-      LSUI.closeMenus();
-    });
-    document.getElementById('btn-sample-response')?.addEventListener('click', () => {
-      loadSample('response');
-      LSUI.closeMenus();
-    });
 
     // Open file
     document.getElementById('btn-open')?.addEventListener('click', () => {
@@ -1111,11 +1012,6 @@ com.example.app1                    {"format":5,"ok":true}
     LSUI.renderStats(null);
     LSUI.setReceiptButtonVisible(false);
     updateStatusBar();
-
-    // Welcome: if query ?sample=logcat
-    const params = new URLSearchParams(window.location.search);
-    const sample = params.get('sample');
-    if (sample) loadSample(sample);
   }
 
   return {
@@ -1124,8 +1020,7 @@ com.example.app1                    {"format":5,"ok":true}
     beautifyCurrent,
     minifyCurrent,
     repairCurrent,
-    clearAll,
-    loadSample
+    clearAll
   };
 })();
 
