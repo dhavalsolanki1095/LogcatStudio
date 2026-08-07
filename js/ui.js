@@ -61,6 +61,11 @@ const LSUI = (() => {
     document.querySelectorAll('.tab-panel').forEach((panel) => {
       panel.classList.toggle('active', panel.id === `tab-${name}`);
     });
+
+    const apiActions = document.getElementById('api-header-actions');
+    const treeActions = document.getElementById('tree-header-actions');
+    if (apiActions) apiActions.hidden = name !== 'api';
+    if (treeActions) treeActions.hidden = name !== 'tree';
   }
 
   function closeMenus() {
@@ -584,6 +589,7 @@ const LSUI = (() => {
         '<div class="api-list-empty">No API calls found. Paste OkHttp / Logcat / .logcat export.</div>';
       detail.innerHTML =
         '<div class="api-detail-empty">Select an API call to view request / response</div>';
+      syncApiHeaderActions(null);
       return;
     }
 
@@ -619,6 +625,7 @@ const LSUI = (() => {
     if (!call) {
       detail.innerHTML =
         '<div class="api-detail-empty">Select an API call to view request / response</div>';
+      syncApiHeaderActions(null);
       return;
     }
 
@@ -639,38 +646,60 @@ const LSUI = (() => {
           ${call.durationMs != null ? `<span class="api-meta">${call.durationMs}ms</span>` : ''}
           ${call.bodyBytes != null ? `<span class="api-meta">${call.bodyBytes} bytes</span>` : ''}
         </div>
-        <div class="api-detail-url">${LSUtils.escapeHtml(call.url || '')}</div>
-        <div class="api-detail-actions">
-          <button type="button" class="pane-header-btn api-btn-primary" id="btn-api-copy-full" title="Copy URL, request and response for sharing">Copy full details</button>
-          <button type="button" class="pane-header-btn" id="btn-api-copy-url">Copy URL</button>
-          <button type="button" class="pane-header-btn" id="btn-api-copy-request">Copy request body</button>
-          <button type="button" class="pane-header-btn" id="btn-api-copy-response">Copy response body</button>
-          <button type="button" class="pane-header-btn" id="btn-api-use-response-json">Open response in Raw</button>
+        <div class="api-detail-url" id="api-detail-url" title="Click to copy URL">${LSUtils.escapeHtml(
+          call.url || ''
+        )}</div>
+      </div>
+
+      <div class="api-detail-scroll">
+        <div class="api-section">
+          <div class="api-section-title">Request headers</div>
+          <pre class="api-headers">${formatHeadersHtml(call.request.headers)}</pre>
+          <div class="api-section-title">Request body</div>
+          <div class="api-body-wrap">${formatBodyHtml(
+            call.request.bodyRaw,
+            call.request.body,
+            call.request.bodyValid
+          )}</div>
+        </div>
+
+        <div class="api-section">
+          <div class="api-section-title">Response headers</div>
+          <pre class="api-headers">${formatHeadersHtml(call.response.headers)}</pre>
+          <div class="api-section-title">Response body</div>
+          <div class="api-body-wrap">${formatBodyHtml(
+            call.response.bodyRaw,
+            call.response.body,
+            call.response.bodyValid
+          )}</div>
         </div>
       </div>
-
-      <div class="api-section">
-        <div class="api-section-title">Request headers</div>
-        <pre class="api-headers">${formatHeadersHtml(call.request.headers)}</pre>
-        <div class="api-section-title">Request body</div>
-        <div class="api-body-wrap">${formatBodyHtml(
-          call.request.bodyRaw,
-          call.request.body,
-          call.request.bodyValid
-        )}</div>
-      </div>
-
-      <div class="api-section">
-        <div class="api-section-title">Response headers</div>
-        <pre class="api-headers">${formatHeadersHtml(call.response.headers)}</pre>
-        <div class="api-section-title">Response body</div>
-        <div class="api-body-wrap">${formatBodyHtml(
-          call.response.bodyRaw,
-          call.response.body,
-          call.response.bodyValid
-        )}</div>
-      </div>
     `;
+
+    const urlEl = detail.querySelector('#api-detail-url');
+    if (urlEl && call.url) {
+      urlEl.style.cursor = 'pointer';
+      urlEl.addEventListener('click', async () => {
+        const ok = await LSUtils.copyText(call.url);
+        LSUtils.toast(ok ? 'URL copied' : 'Copy failed', ok ? 'success' : 'error');
+      });
+    }
+
+    syncApiHeaderActions(call);
+  }
+
+  function syncApiHeaderActions(call) {
+    const setDisabled = (id, disabled) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = !!disabled;
+    };
+    const hasRequest = !!(call && call.request && (call.request.bodyRaw || call.request.body));
+    const hasResponse = !!(call && call.response && (call.response.bodyRaw || call.response.body));
+    setDisabled('btn-api-copy-full', !call);
+    setDisabled('btn-api-copy-url', !(call && call.url));
+    setDisabled('btn-api-copy-request', !hasRequest);
+    setDisabled('btn-api-copy-response', !hasResponse);
+    setDisabled('btn-api-use-response-json', !hasResponse);
   }
 
   return {
@@ -694,7 +723,8 @@ const LSUI = (() => {
     renderRawOutput,
     setupRawScrollSync,
     highlightRawSearch,
-    renderApiCalls
+    renderApiCalls,
+    syncApiHeaderActions
   };
 })();
 

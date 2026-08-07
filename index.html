@@ -157,8 +157,17 @@ Supports:
             <button type="button" class="output-tab" data-tab="stats" role="tab">Statistics</button>
           </div>
           <div class="pane-header-actions">
-            <button type="button" class="pane-header-btn" id="btn-expand-all" title="Expand all tree nodes">Expand</button>
-            <button type="button" class="pane-header-btn" id="btn-collapse-all" title="Collapse all tree nodes">Collapse</button>
+            <div id="api-header-actions" class="api-header-actions" hidden role="toolbar" aria-label="API detail actions">
+              <button type="button" class="pane-header-btn api-btn-primary" id="btn-api-copy-full" title="Copy URL, request and response for sharing">Copy full details</button>
+              <button type="button" class="pane-header-btn" id="btn-api-copy-url" title="Copy request URL">Copy URL</button>
+              <button type="button" class="pane-header-btn" id="btn-api-copy-request" title="Copy request body" disabled>Copy request body</button>
+              <button type="button" class="pane-header-btn" id="btn-api-copy-response" title="Copy response body" disabled>Copy response body</button>
+              <button type="button" class="pane-header-btn" id="btn-api-use-response-json" title="Open response JSON in Raw tab" disabled>Open response in Raw</button>
+            </div>
+            <div id="tree-header-actions" class="tree-header-actions" hidden>
+              <button type="button" class="pane-header-btn" id="btn-expand-all" title="Expand all tree nodes">Expand</button>
+              <button type="button" class="pane-header-btn" id="btn-collapse-all" title="Collapse all tree nodes">Collapse</button>
+            </div>
           </div>
         </div>
 

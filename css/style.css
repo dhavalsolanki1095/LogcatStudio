@@ -364,8 +364,41 @@ textarea {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  overflow: hidden;
+}
+
+.api-header-actions,
+.tree-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.api-header-actions[hidden],
+.tree-header-actions[hidden] {
+  display: none !important;
+}
+
+.api-header-actions {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 1px;
+}
+
+.api-header-actions .pane-header-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.api-header-actions .pane-header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .pane-header-btn {
@@ -630,6 +663,7 @@ textarea {
   align-items: center;
   gap: 0;
   height: 100%;
+  flex-shrink: 0;
 }
 
 .output-tab {
@@ -1517,14 +1551,6 @@ textarea {
   border-right: none;
 }
 
-#api-detail {
-  flex: 1;
-  min-width: 0;
-  overflow: auto;
-  padding: 12px 14px;
-  background: var(--ls-bg-input);
-}
-
 .raw-block-title .api-method,
 .raw-block-title .raw-block-badge {
   margin-right: 8px;
@@ -1560,6 +1586,13 @@ textarea {
   font-size: 12px;
   line-height: 1.5;
   text-align: center;
+}
+
+#api-detail > .api-detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .api-call-item {
@@ -1634,21 +1667,26 @@ textarea {
 .api-meta {
   color: var(--ls-text-muted);
   font-size: 10.5px;
-  margin-top: 3px;
 }
 
 #api-detail {
   flex: 1;
   min-width: 0;
-  overflow: auto;
-  padding: 12px 14px;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   background: var(--ls-bg-input);
 }
 
 .api-detail-header {
-  margin-bottom: 14px;
-  padding-bottom: 10px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--ls-border);
+  background: var(--ls-bg-elevated);
 }
 
 .api-detail-title {
@@ -1656,7 +1694,7 @@ textarea {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .api-detail-url {
@@ -1665,13 +1703,25 @@ textarea {
   color: var(--ls-key);
   word-break: break-all;
   line-height: 1.45;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin: 8px -6px 0;
+  max-height: 4.5em;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 
-.api-detail-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 10px;
+.api-detail-url:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ls-info);
+}
+
+.api-detail-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px 20px;
+  scrollbar-width: thin;
 }
 
 .pane-header-btn.api-btn-primary {
@@ -1680,7 +1730,7 @@ textarea {
   border-color: var(--ls-accent);
 }
 
-.pane-header-btn.api-btn-primary:hover {
+.pane-header-btn.api-btn-primary:hover:not(:disabled) {
   background: var(--ls-accent-hover);
   border-color: var(--ls-accent-hover);
   color: #fff;
@@ -1696,7 +1746,8 @@ textarea {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--ls-text-muted);
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  padding: 0;
 }
 
 .api-headers {
@@ -1710,6 +1761,9 @@ textarea {
   border-radius: var(--ls-radius);
   white-space: pre-wrap;
   word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 
 .api-headers .hk { color: var(--ls-key); }
@@ -1728,11 +1782,12 @@ textarea {
   font-family: var(--ls-mono);
   font-size: 12px;
   line-height: 1.55;
+  color: var(--ls-text);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 420px;
+  max-height: min(420px, 50vh);
   overflow: auto;
-  color: var(--ls-text);
+  scrollbar-width: thin;
 }
 
 .api-body .json-key { color: var(--ls-key); }

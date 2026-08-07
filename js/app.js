@@ -129,8 +129,13 @@ const LSApp = (() => {
     applyFormatted(text, value);
   }
 
-  function bindApiDetailActions(call) {
+  function bindApiDetailActions() {
+    const getCall = () =>
+      state.activeApi >= 0 ? state.apiCalls[state.activeApi] : null;
+
     document.getElementById('btn-api-copy-full')?.addEventListener('click', async () => {
+      const call = getCall();
+      if (!call) return;
       const text =
         typeof LSApiExtractor !== 'undefined'
           ? LSApiExtractor.formatFullDetails(call)
@@ -139,10 +144,14 @@ const LSApp = (() => {
       LSUtils.toast(ok ? 'Full API details copied — ready to share' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-copy-url')?.addEventListener('click', async () => {
+      const call = getCall();
+      if (!call) return;
       const ok = await LSUtils.copyText(call.url || '');
       LSUtils.toast(ok ? 'URL copied' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-copy-request')?.addEventListener('click', async () => {
+      const call = getCall();
+      if (!call) return;
       const text =
         call.request.bodyValid && call.request.body != null
           ? LSFormatter.beautify(call.request.body, getIndent())
@@ -151,6 +160,8 @@ const LSApp = (() => {
       LSUtils.toast(ok ? 'Request body copied' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-copy-response')?.addEventListener('click', async () => {
+      const call = getCall();
+      if (!call) return;
       const text =
         call.response.bodyValid && call.response.body != null
           ? LSFormatter.beautify(call.response.body, getIndent())
@@ -159,6 +170,8 @@ const LSApp = (() => {
       LSUtils.toast(ok ? 'Response body copied' : 'Copy failed', ok ? 'success' : 'error');
     });
     document.getElementById('btn-api-use-response-json')?.addEventListener('click', () => {
+      const call = getCall();
+      if (!call) return;
       if (call.response.bodyValid && call.response.body != null) {
         try {
           const text = LSFormatter.beautify(call.response.body, getIndent());
@@ -181,7 +194,6 @@ const LSApp = (() => {
     if (index < 0 || index >= state.apiCalls.length) return;
     state.activeApi = index;
     LSUI.renderApiCalls(state.apiCalls, index, selectApiCall);
-    bindApiDetailActions(state.apiCalls[index]);
   }
 
   function refreshApiPanel() {
@@ -810,6 +822,7 @@ com.example.app1                    {"format":5,"ok":true}
 
     document.getElementById('btn-expand-all')?.addEventListener('click', () => LSTree.expandAll());
     document.getElementById('btn-collapse-all')?.addEventListener('click', () => LSTree.collapseAll());
+    bindApiDetailActions();
 
     document.getElementById('btn-receipt-preview')?.addEventListener('click', () => {
       if (state.receiptHtml) LSUI.showReceipt(state.receiptHtml);
