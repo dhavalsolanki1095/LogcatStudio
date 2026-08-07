@@ -3,47 +3,157 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Logcat Studio — Extract, clean, format, validate, and explore JSON from Android Studio Logcat" />
-  <meta name="theme-color" content="#1e1e1e" />
+  <meta name="description" content="Logcat Studio — Professional Android Logcat analysis workspace" />
+  <meta name="theme-color" content="#0F1115" />
   <title>Logcat Studio</title>
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Base component styles (tree, API, issues) — required by existing engine -->
   <link rel="stylesheet" href="css/style.css?v=20260807q" />
   <link rel="stylesheet" href="css/theme.css?v=20260807k" />
+  <!-- Professional shell overrides -->
+  <link rel="stylesheet" href="css/app.css?v=20260807c" />
 </head>
-<body class="theme-dark">
-  <div id="app">
-    <!-- Toolbar -->
-    <header id="toolbar" role="toolbar" aria-label="Main toolbar">
-      <div class="toolbar-row toolbar-row-main">
-        <div class="toolbar-brand" title="Logcat Studio">
-          <img src="assets/icons/icon.svg" alt="" width="22" height="22" />
-          <span>Logcat Studio</span>
+<body class="theme-dark rv2-body">
+  <div id="app" class="rv2-app" data-rv2="true">
+    <!-- Application header -->
+    <header id="toolbar" class="rv2-header" role="banner">
+      <div class="toolbar-row toolbar-row-main rv2-header-main">
+        <div class="toolbar-brand rv2-brand" title="Logcat Studio">
+          <img src="assets/icons/icon.svg" alt="" width="20" height="20" />
+          <div class="rv2-brand-text">
+            <span class="rv2-brand-name">Logcat Studio</span>
+            <span class="rv2-brand-sub">Developer Tool</span>
+          </div>
         </div>
 
+        <nav class="rv2-menubar" aria-label="Main menu">
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">File</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="new">New</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="open">Open<span class="rv2-kbd">Ctrl+O</span></button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="paste">Paste</button>
+              <div class="rv2-menu-sep"></div>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="clear">Clear</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="history">History</button>
+            </div>
+          </div>
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">Edit</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="copy-formatted">Copy formatted</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="select-all">Select All</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="find">Find<span class="rv2-kbd">Ctrl+F</span></button>
+            </div>
+          </div>
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">Process</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="process">Process<span class="rv2-kbd">Ctrl+Enter</span></button>
+              <div class="rv2-menu-sep"></div>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="beautify">Beautify</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="minify">Minify</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="repair">Repair</button>
+            </div>
+          </div>
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">View</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-raw">Raw</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-tree">Tree</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-api">API Calls</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-issues">Issues</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-compare">Compare</button>
+              <div class="rv2-menu-sep"></div>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="fullscreen">Fullscreen</button>
+            </div>
+          </div>
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">Analyze</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="find">Search</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-raw">JSON Blocks</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-api">API Analysis</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="tab-issues">Issue Detection</button>
+            </div>
+          </div>
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">Export</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="copy-formatted">Copy JSON</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="download-json">Download JSON</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="download-txt">Download TXT</button>
+            </div>
+          </div>
+          <div class="rv2-menu">
+            <button type="button" class="rv2-menu-trigger" aria-haspopup="true" aria-expanded="false">Tools</button>
+            <div class="rv2-menu-panel" role="menu" hidden>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="receipt" id="rv2-menu-receipt" hidden>Receipt</button>
+              <button type="button" class="rv2-menu-item" role="menuitem" data-rv2-action="theme">Toggle Theme</button>
+            </div>
+          </div>
+        </nav>
+
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-group toolbar-group-end rv2-header-actions" aria-label="View">
+          <button type="button" class="toolbar-btn rv2-icon-btn" id="btn-theme-toggle" title="Toggle Dark / Light">
+            <svg class="rv2-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <span class="btn-label">Theme</span>
+            <!-- Intentionally no #theme-toggle-icon so engine won't inject emoji -->
+          </button>
+          <button type="button" class="toolbar-btn rv2-icon-btn" id="rv2-btn-fullscreen" title="Toggle fullscreen">
+            <svg class="rv2-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            <span class="btn-label">Full</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Primary toolbar -->
+      <div class="toolbar-row rv2-toolbar" role="toolbar" aria-label="Primary actions">
         <div class="toolbar-group" aria-label="File">
+          <button type="button" class="toolbar-btn" id="rv2-btn-new" title="New / Clear workspace">
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="btn-label">New</span>
+          </button>
           <button type="button" class="toolbar-btn" id="btn-open" title="Open file (Ctrl+O)">
-            <span class="btn-icon">📂</span><span class="btn-label">Open</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="btn-label">Open</span>
           </button>
           <button type="button" class="toolbar-btn" id="btn-paste" title="Paste from clipboard">
-            <span class="btn-icon">📋</span><span class="btn-label">Paste</span>
-          </button>
-          <button type="button" class="toolbar-btn toolbar-btn-primary" id="btn-process" title="Process (Ctrl+Enter)">
-            <span class="btn-icon">▶</span><span class="btn-label">Process</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+            <span class="btn-label">Paste</span>
           </button>
           <button type="button" class="toolbar-btn" id="btn-clear" title="Clear all">
-            <span class="btn-icon">✕</span><span class="btn-label">Clear</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <span class="btn-label">Clear</span>
+          </button>
+        </div>
+
+        <div class="rv2-toolbar-sep" aria-hidden="true"></div>
+
+        <div class="toolbar-group" aria-label="Process">
+          <button type="button" class="toolbar-btn toolbar-btn-primary rv2-btn-process" id="btn-process" title="Process (Ctrl+Enter)">
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            <span class="btn-label">Process</span>
           </button>
         </div>
 
         <div class="toolbar-group" aria-label="Format">
           <button type="button" class="toolbar-btn" id="btn-beautify" title="Beautify (Ctrl+Shift+F)">
-            <span class="btn-icon">✨</span><span class="btn-label">Beautify</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3zM19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75L19 14z"/></svg>
+            <span class="btn-label">Beautify</span>
           </button>
           <button type="button" class="toolbar-btn" id="btn-minify" title="Minify (Ctrl+M)">
-            <span class="btn-icon">📦</span><span class="btn-label">Minify</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+            <span class="btn-label">Minify</span>
           </button>
           <button type="button" class="toolbar-btn" id="btn-repair" title="Repair malformed JSON">
-            <span class="btn-icon">🔧</span><span class="btn-label">Repair</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span class="btn-label">Repair</span>
           </button>
           <label class="toolbar-label" for="select-indent">Indent</label>
           <select id="select-indent" class="toolbar-select" title="Indentation">
@@ -53,10 +163,13 @@
           </select>
         </div>
 
+        <div class="rv2-toolbar-sep" aria-hidden="true"></div>
+
         <div class="toolbar-group" aria-label="Copy">
           <div class="toolbar-dropdown">
             <button type="button" class="toolbar-btn toolbar-dropdown-toggle" title="Copy" aria-haspopup="true" aria-expanded="false">
-              <span class="btn-icon">📑</span><span class="btn-label">Copy</span><span class="btn-caret">▾</span>
+              <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span class="btn-label">Copy</span><span class="btn-caret">▾</span>
             </button>
             <div class="toolbar-menu" role="menu" hidden>
               <button type="button" class="toolbar-menu-item" id="btn-copy-formatted" role="menuitem">Copy formatted (selected)</button>
@@ -66,7 +179,8 @@
           </div>
           <div class="toolbar-dropdown">
             <button type="button" class="toolbar-btn toolbar-dropdown-toggle" title="Download" aria-haspopup="true" aria-expanded="false">
-              <span class="btn-icon">💾</span><span class="btn-label">Download</span><span class="btn-caret">▾</span>
+              <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              <span class="btn-label">Download</span><span class="btn-caret">▾</span>
             </button>
             <div class="toolbar-menu" role="menu" hidden>
               <button type="button" class="toolbar-menu-item" id="btn-download-json" role="menuitem">Download selected .json</button>
@@ -75,28 +189,25 @@
           </div>
         </div>
 
+        <div class="rv2-toolbar-sep" aria-hidden="true"></div>
+
         <div class="toolbar-group" aria-label="History">
           <button type="button" class="toolbar-btn" id="btn-history" title="Paste history">
-            <span class="btn-icon">🕐</span><span class="btn-label">History</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span class="btn-label">History</span>
           </button>
           <button type="button" class="toolbar-btn" id="btn-receipt-preview" title="Preview receipt HTML" hidden>
-            <span class="btn-icon">🧾</span><span class="btn-label">Receipt</span>
-          </button>
-        </div>
-
-        <div class="toolbar-spacer"></div>
-
-        <div class="toolbar-group toolbar-group-end" aria-label="View">
-          <button type="button" class="toolbar-btn" id="btn-theme-toggle" title="Toggle Dark / Light">
-            <span class="btn-icon" id="theme-toggle-icon">🌙</span><span class="btn-label">Theme</span>
+            <svg class="rv2-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z"/><path d="M8 10h8M8 14h5"/></svg>
+            <span class="btn-label">Receipt</span>
           </button>
         </div>
       </div>
 
-      <div class="toolbar-row toolbar-row-secondary">
-        <span class="toolbar-label">Search</span>
+      <!-- Search row -->
+      <div class="toolbar-row toolbar-row-secondary rv2-search-row">
+        <svg class="rv2-ico rv2-search-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="search" id="search-input" class="toolbar-input toolbar-input-grow" placeholder="Search keys &amp; values (Ctrl+F)" autocomplete="off" spellcheck="false" />
-        <span id="search-count"></span>
+        <span id="search-count" class="rv2-search-count"></span>
         <label class="toolbar-checkbox"><input type="checkbox" id="search-keys" checked /> Keys</label>
         <label class="toolbar-checkbox"><input type="checkbox" id="search-values" checked /> Values</label>
         <label class="toolbar-checkbox"><input type="checkbox" id="search-regex" /> Regex</label>
@@ -104,36 +215,48 @@
       </div>
     </header>
 
+    <!-- Mobile pane switcher -->
+    <div class="rv2-mobile-tabs" role="tablist" aria-label="Workspace panes">
+      <button type="button" class="rv2-mobile-tab active" data-rv2-pane="input" role="tab" aria-selected="true">Input</button>
+      <button type="button" class="rv2-mobile-tab" data-rv2-pane="results" role="tab" aria-selected="false">Results</button>
+    </div>
+
     <!-- Workspace -->
-    <main id="workspace">
-      <section id="input-pane" class="pane" aria-label="Input">
+    <main id="workspace" class="rv2-workspace">
+      <section id="input-pane" class="pane rv2-pane" aria-label="Input">
         <div class="pane-header">
-          <div class="pane-header-title">Input · Logcat / JSON</div>
+          <div class="pane-header-title">
+            <span>Input</span>
+            <span class="rv2-pane-sub">Logcat / JSON</span>
+            <span id="rv2-type-badge" class="rv2-type-badge" data-type="empty">Unknown</span>
+          </div>
           <div class="pane-header-actions">
-            <button type="button" class="pane-header-btn" id="btn-open-pane" title="Open Logcat / JSON file">Open file</button>
+            <button type="button" class="pane-header-btn" id="btn-open-pane" title="Open Logcat / JSON file">Open</button>
+            <button type="button" class="pane-header-btn" id="rv2-btn-paste-pane" title="Paste from clipboard">Paste</button>
             <button type="button" class="pane-header-btn" id="btn-process-pane" title="Process">Process</button>
           </div>
         </div>
-        <div class="pane-body">
+        <div class="pane-body rv2-input-body">
           <textarea
             id="input-editor"
             class="editor-area"
             spellcheck="false"
             autocomplete="off"
             autocapitalize="off"
-            placeholder="Paste Android Studio Logcat, or drag & drop a .logcat / .log / .txt / .json file here…
+            placeholder="Paste or type Android Studio Logcat / JSON here…
 
 Supports:
 • Android Studio .logcat export
-• OkHttp / Retrofit request & response logs
-• Raw JSON"
+• OkHttp / Retrofit request &amp; response logs
+• Raw JSON
+• Drag &amp; drop .logcat · .log · .txt · .json"
           ></textarea>
         </div>
       </section>
 
       <div id="splitter-v" title="Drag to resize" role="separator" aria-orientation="vertical"></div>
 
-      <section id="output-pane" class="pane" aria-label="Output">
+      <section id="output-pane" class="pane rv2-pane" aria-label="Output">
         <div class="pane-header">
           <div class="output-tabs" role="tablist">
             <button type="button" class="output-tab active" data-tab="raw" role="tab">Raw</button>
@@ -146,7 +269,7 @@ Supports:
             <div id="api-header-actions" class="api-header-actions" hidden role="toolbar" aria-label="API detail actions">
               <div class="toolbar-dropdown api-copy-dropdown">
                 <button type="button" class="pane-header-btn api-btn-primary toolbar-dropdown-toggle" id="btn-api-copy-menu" title="Copy API details" aria-haspopup="true" aria-expanded="false">
-                  <span class="api-btn-icon" aria-hidden="true">📋</span> Copy <span class="btn-caret">▾</span>
+                  Copy <span class="btn-caret">▾</span>
                 </button>
                 <div class="toolbar-menu api-copy-menu" role="menu" hidden>
                   <button type="button" class="toolbar-menu-item" id="btn-api-copy-full" role="menuitem">Full details</button>
@@ -158,14 +281,10 @@ Supports:
               <button type="button" class="pane-header-btn" id="btn-api-use-response-json" title="Open response JSON in Raw tab" disabled>Open in Raw</button>
             </div>
             <div id="raw-header-actions" class="raw-header-actions">
-              <button type="button" class="pane-header-btn" id="btn-raw-copy" title="Copy selected JSON">
-                <span class="api-btn-icon" aria-hidden="true">📋</span> Copy JSON
-              </button>
+              <button type="button" class="pane-header-btn" id="btn-raw-copy" title="Copy selected JSON">Copy JSON</button>
             </div>
             <div id="tree-header-actions" class="tree-header-actions" hidden>
-              <button type="button" class="pane-header-btn" id="btn-tree-copy" title="Copy selected JSON">
-                <span class="api-btn-icon" aria-hidden="true">📋</span> Copy JSON
-              </button>
+              <button type="button" class="pane-header-btn" id="btn-tree-copy" title="Copy selected JSON">Copy JSON</button>
               <button type="button" class="pane-header-btn" id="btn-expand-all" title="Expand all tree nodes">Expand</button>
               <button type="button" class="pane-header-btn" id="btn-collapse-all" title="Collapse all tree nodes">Collapse</button>
             </div>
@@ -182,7 +301,6 @@ Supports:
         <div id="validation-banner" role="status"></div>
 
         <div class="pane-body" style="position:relative">
-          <!-- Shared shell: one vertical sidebar for Raw / Tree / Compare / API Calls -->
           <div id="json-shell" class="json-shell active">
             <aside id="side-nav" class="side-nav" aria-label="Side navigation">
               <div id="json-block-list" class="side-nav-panel">
@@ -205,7 +323,6 @@ Supports:
               </div>
             </aside>
             <div class="json-shell-main">
-              <!-- Raw -->
               <div id="tab-raw" class="tab-panel active" role="tabpanel">
                 <div class="json-editor-stack">
                   <div id="raw-json-view" class="json-view" hidden aria-label="Formatted JSON with folds"></div>
@@ -214,7 +331,6 @@ Supports:
                 </div>
               </div>
 
-              <!-- Tree -->
               <div id="tab-tree" class="tab-panel" role="tabpanel">
                 <div id="tree-container"></div>
                 <div id="path-bar">
@@ -223,11 +339,18 @@ Supports:
                 </div>
               </div>
 
-              <!-- Compare -->
               <div id="tab-compare" class="tab-panel" role="tabpanel">
-                <div style="display:flex;gap:6px;padding:6px 10px;background:var(--ls-bg-elevated);border-bottom:1px solid var(--ls-border);flex-shrink:0">
+                <div class="rv2-compare-toolbar">
                   <button type="button" class="pane-header-btn" id="btn-compare-use-current">Use current as Left</button>
-                  <button type="button" class="pane-header-btn" id="btn-compare-run" style="background:var(--ls-accent);color:#fff">Compare</button>
+                  <button type="button" class="pane-header-btn rv2-compare-run" id="btn-compare-run">Compare</button>
+                </div>
+                <div id="rv2-compare-empty" class="rv2-empty-state rv2-compare-empty">
+                  <div class="rv2-empty-title">Compare</div>
+                  <div class="rv2-empty-desc">Compare two processed Logcat / JSON results.</div>
+                  <div class="rv2-empty-actions">
+                    <button type="button" class="rv2-empty-btn rv2-empty-btn-primary" id="rv2-compare-use-left">Use Current as Left</button>
+                  </div>
+                  <div class="rv2-empty-hint">Then load or paste another input and select Compare.</div>
                 </div>
                 <div id="compare-container">
                   <div class="compare-pane">
@@ -247,14 +370,12 @@ Supports:
                 </div>
               </div>
 
-              <!-- API Calls detail (list is in shared side-nav) -->
               <div id="tab-api" class="tab-panel" role="tabpanel">
                 <section id="api-detail" aria-label="API call details">
                   <div class="api-detail-empty">Select an API call to view request / response</div>
                 </section>
               </div>
 
-              <!-- Issues: Smart Error Detection + Crash Grouping + Device Info -->
               <div id="tab-issues" class="tab-panel" role="tabpanel">
                 <section id="issues-panel" class="issues-panel" aria-label="Issues">
                   <div class="issues-summary" id="issues-summary"></div>
@@ -270,10 +391,9 @@ Supports:
             </div>
           </div>
 
-          <!-- History popover -->
-          <div id="history-panel" aria-label="History">
+          <div id="history-panel" class="rv2-history-drawer" aria-label="History">
             <div class="history-header">
-              <span>History (last 10)</span>
+              <span>History</span>
               <div>
                 <button type="button" class="pane-header-btn" id="btn-history-clear">Clear</button>
                 <button type="button" class="pane-header-btn" id="btn-history-close">Close</button>
@@ -286,8 +406,12 @@ Supports:
     </main>
 
     <!-- Status bar -->
-    <footer id="status-bar" role="status">
+    <footer id="status-bar" class="rv2-status" role="status">
       <div class="status-left">
+        <div class="status-item rv2-status-ready">
+          <span class="rv2-status-dot" id="rv2-status-dot" aria-hidden="true"></span>
+          <span class="value" id="rv2-status-label">Ready</span>
+        </div>
         <div class="status-item">
           <span class="label">Type</span>
           <span class="value" id="status-type">—</span>
@@ -345,17 +469,18 @@ Supports:
   </div>
 
   <div id="drop-overlay" aria-hidden="true">
-    <div class="drop-icon">📂</div>
+    <div class="drop-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </div>
     <div class="drop-text">Drop Logcat file to open</div>
     <div class="drop-hint">.logcat · .log · .txt · .json</div>
   </div>
 
-  <!-- Centered processing overlay (blocks UI, allows Cancel) -->
   <div id="busy-overlay" class="busy-overlay" hidden aria-hidden="true" role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-detail">
     <div class="busy-card">
       <div class="busy-spinner" aria-hidden="true"></div>
       <div id="busy-title" class="busy-title">Processing Logcat…</div>
-      <div id="busy-detail" class="busy-detail">Please wait</div>
+      <div id="busy-detail" class="busy-detail">Analyzing logs and extracting JSON blocks, API calls and issues</div>
       <button type="button" class="busy-cancel" id="btn-busy-cancel" title="Stop and start fresh">Cancel</button>
       <div class="busy-hint">Cancel stops processing and clears the workspace</div>
     </div>
@@ -364,6 +489,7 @@ Supports:
   <div id="toast-container" aria-live="polite"></div>
   <input type="file" id="file-open-input" class="hidden-input" accept=".json,.txt,.log,.logcat,.text,text/plain,application/json" />
 
+  <!-- Existing processing engine (unchanged) -->
   <script src="js/utils.js?v=20260807j"></script>
   <script src="js/storage.js?v=20260807n"></script>
   <script src="js/parser.js?v=20260807j"></script>
@@ -379,5 +505,7 @@ Supports:
   <script src="js/compare.js"></script>
   <script src="js/ui.js?v=20260807q"></script>
   <script src="js/app.js?v=20260807r"></script>
+  <!-- Shell enhancements -->
+  <script src="js/shell.js?v=20260807c"></script>
 </body>
 </html>

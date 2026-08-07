@@ -69,14 +69,16 @@ LogcatStudio/
 ├── .nojekyll
 ├── .gitignore
 ├── assets/
-│   ├── icons/icon.svg
-│   └── images/
+│   └── icons/icon.svg
 ├── css/
-│   ├── style.css
-│   └── theme.css
+│   ├── style.css      # Component styles (tree, API, issues)
+│   ├── theme.css      # Light theme overrides
+│   └── app.css        # Professional IDE shell
 ├── js/
-│   ├── app.js
+│   ├── app.js         # Application controller
+│   ├── shell.js       # Shell enhancements (menus, status, fullscreen)
 │   ├── parser.js
+│   ├── api-extractor.js
 │   ├── formatter.js
 │   ├── validator.js
 │   ├── tree.js
@@ -84,6 +86,10 @@ LogcatStudio/
 │   ├── storage.js
 │   ├── ui.js
 │   ├── highlighter.js
+│   ├── json-view.js
+│   ├── issue-detector.js
+│   ├── device-info.js
+│   ├── log-index.js
 │   └── utils.js
 ```
 
