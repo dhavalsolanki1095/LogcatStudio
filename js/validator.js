@@ -1,5 +1,5 @@
 /**
- * Logcat Studio — JSON validation, repair, and statistics
+ * Logcat Studio — JSON validation and repair
  */
 const LSValidator = (() => {
   'use strict';
@@ -167,98 +167,9 @@ const LSValidator = (() => {
     };
   }
 
-  function collectStats(value) {
-    const stats = {
-      objects: 0,
-      arrays: 0,
-      strings: 0,
-      numbers: 0,
-      booleans: 0,
-      nulls: 0,
-      keys: 0,
-      maxDepth: 0,
-      nodes: 0
-    };
-
-    function walk(node, depth) {
-      stats.nodes += 1;
-      stats.maxDepth = Math.max(stats.maxDepth, depth);
-
-      if (node === null) {
-        stats.nulls += 1;
-        return;
-      }
-
-      const t = typeof node;
-      if (t === 'string') {
-        stats.strings += 1;
-        return;
-      }
-      if (t === 'number') {
-        stats.numbers += 1;
-        return;
-      }
-      if (t === 'boolean') {
-        stats.booleans += 1;
-        return;
-      }
-      if (Array.isArray(node)) {
-        stats.arrays += 1;
-        node.forEach((x) => walk(x, depth + 1));
-        return;
-      }
-      if (t === 'object') {
-        stats.objects += 1;
-        const keys = Object.keys(node);
-        stats.keys += keys.length;
-        keys.forEach((k) => walk(node[k], depth + 1));
-      }
-    }
-
-    walk(value, 1);
-    return stats;
-  }
-
-  function statsForText(text) {
-    const v = validate(text);
-    const charCount = String(text || '').length;
-    const lineCount = LSUtils.countLines(text);
-    const size = LSUtils.formatBytes(new Blob([text || '']).size);
-
-    if (!v.valid) {
-      return {
-        valid: false,
-        error: v.error,
-        charCount,
-        lineCount,
-        size,
-        objects: 0,
-        arrays: 0,
-        strings: 0,
-        numbers: 0,
-        booleans: 0,
-        nulls: 0,
-        keys: 0,
-        maxDepth: 0,
-        nodes: 0
-      };
-    }
-
-    return {
-      valid: true,
-      error: null,
-      charCount,
-      lineCount,
-      size,
-      ...collectStats(v.value)
-    };
-  }
-
   return {
     validate,
     repair,
-    collectStats,
-    statsForText,
     parseErrorPosition
   };
 })();

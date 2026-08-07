@@ -85,10 +85,6 @@ body.theme-light #drop-overlay {
   background: rgba(0, 120, 212, 0.85);
 }
 
-body.theme-light .stat-card {
-  background: #f8f8f8;
-}
-
 body.theme-light .modal-body {
   background: #c8c8c8;
 }
@@ -99,4 +95,27 @@ body.theme-light .block-chip {
 
 body.theme-light .tree-badge {
   background: #eee;
+}
+
+body.theme-light .jv-line:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.theme-light .jv-gutter,
+body.theme-light .api-json-view .jv-gutter {
+  background: #f3f3f3;
+}
+
+body.theme-light .jv-ellipsis {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+body.theme-light .json-view,
+body.theme-light .api-json-view {
+  background: #fff;
+}
+
+body.theme-light #btn-full-view.active {
+  background: var(--ls-accent);
+  color: #fff;
 }

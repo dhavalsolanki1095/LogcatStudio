@@ -44,7 +44,6 @@ Then open `http://localhost:8080`.
 
 ### Advanced
 - **JSON Compare** — added / removed / changed
-- **Statistics** — type counts, depth, size, lines
 - **History** — last 10 pastes (localStorage)
 - **Themes** — dark (default) / light
 - **Receipt Preview** — when JSON contains `receipt_html` / `receipt` / `html` / `print_data`

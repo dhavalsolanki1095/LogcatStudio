@@ -5,6 +5,10 @@ const LSUI = (() => {
   'use strict';
 
   let currentTheme = 'dark';
+  let rawJsonView = null;
+  const apiJsonViews = [];
+  let fullViewActive = false;
+  let fullViewTab = null;
 
   function applyTheme(theme) {
     currentTheme = theme === 'light' ? 'light' : 'dark';
@@ -66,6 +70,55 @@ const LSUI = (() => {
     const treeActions = document.getElementById('tree-header-actions');
     if (apiActions) apiActions.hidden = name !== 'api';
     if (treeActions) treeActions.hidden = name !== 'tree';
+
+    if (fullViewActive) fullViewTab = name;
+    syncFullViewButton(name);
+  }
+
+  function syncFullViewButton(tabName) {
+    const btn = document.getElementById('btn-full-view');
+    if (!btn) return;
+    const supported = { raw: 1, tree: 1, api: 1, compare: 1 };
+    btn.hidden = !supported[tabName];
+    const on = fullViewActive && fullViewTab === tabName;
+    btn.classList.toggle('active', on);
+    btn.title = on ? 'Exit full view (Esc)' : 'Open current tab in full view';
+    const label = btn.querySelector('.btn-label-full');
+    if (label) label.textContent = on ? 'Exit full' : 'Full view';
+  }
+
+  function enterFullView(tabName) {
+    const pane = document.getElementById('output-pane');
+    if (!pane) return;
+    const tab = tabName || (document.querySelector('.output-tab.active') || {}).dataset?.tab || 'raw';
+    fullViewActive = true;
+    fullViewTab = tab;
+    pane.classList.add('full-view');
+    document.body.classList.add('ls-full-view');
+    syncFullViewButton(tab);
+  }
+
+  function exitFullView() {
+    const pane = document.getElementById('output-pane');
+    if (!pane) return;
+    fullViewActive = false;
+    fullViewTab = null;
+    pane.classList.remove('full-view');
+    document.body.classList.remove('ls-full-view');
+    const active = (document.querySelector('.output-tab.active') || {}).dataset?.tab || 'raw';
+    syncFullViewButton(active);
+  }
+
+  function toggleFullView() {
+    if (fullViewActive) exitFullView();
+    else {
+      const tab = (document.querySelector('.output-tab.active') || {}).dataset?.tab || 'raw';
+      enterFullView(tab);
+    }
+  }
+
+  function isFullView() {
+    return fullViewActive;
   }
 
   function closeMenus() {
@@ -375,37 +428,6 @@ const LSUI = (() => {
     }
   }
 
-  function renderStats(stats) {
-    const el = document.getElementById('stats-container');
-    if (!el) return;
-
-    if (!stats) {
-      el.innerHTML = '<div class="tree-empty"><div class="ph-title">No statistics</div><div class="ph-hint">Process valid JSON to see stats.</div></div>';
-      return;
-    }
-
-    const items = [
-      { label: 'Objects', value: stats.objects },
-      { label: 'Arrays', value: stats.arrays },
-      { label: 'Strings', value: stats.strings },
-      { label: 'Numbers', value: stats.numbers },
-      { label: 'Booleans', value: stats.booleans },
-      { label: 'Nulls', value: stats.nulls },
-      { label: 'Keys', value: stats.keys },
-      { label: 'Max Depth', value: stats.maxDepth },
-      { label: 'Nodes', value: stats.nodes },
-      { label: 'Characters', value: LSUtils.formatNumber(stats.charCount) },
-      { label: 'Lines', value: LSUtils.formatNumber(stats.lineCount) },
-      { label: 'Size', value: stats.size }
-    ];
-
-    el.innerHTML = `<div class="stats-grid">${items.map((it) => `
-      <div class="stat-card">
-        <div class="stat-label">${it.label}</div>
-        <div class="stat-value">${it.value}</div>
-      </div>`).join('')}</div>`;
-  }
-
   function renderHistory(list, onPick) {
     const panel = document.getElementById('history-panel');
     const listEl = document.getElementById('history-list');
@@ -473,6 +495,13 @@ const LSUI = (() => {
     if (overlay) overlay.classList.remove('open');
   }
 
+  function destroyApiJsonViews() {
+    while (apiJsonViews.length) {
+      const v = apiJsonViews.pop();
+      if (v && typeof v.destroy === 'function') v.destroy();
+    }
+  }
+
   function setReceiptButtonVisible(visible) {
     const btn = document.getElementById('btn-receipt-preview');
     if (btn) btn.hidden = !visible;
@@ -481,29 +510,64 @@ const LSUI = (() => {
   function renderRawOutput(text) {
     const ta = document.getElementById('raw-output');
     const pre = document.getElementById('raw-highlight');
+    const viewEl = document.getElementById('raw-json-view');
+    const stack = document.querySelector('#tab-raw .json-editor-stack');
     if (!ta) return;
 
     const src = String(text || '');
     ta.value = src;
 
     const validation = src ? LSValidator.validate(src) : { valid: false };
-    // Syntax highlight is expensive — skip for large payloads to keep UI responsive
-    const HIGHLIGHT_MAX = 120000;
+    const HIGHLIGHT_MAX =
+      typeof LSJsonView !== 'undefined' ? LSJsonView.HIGHLIGHT_MAX : 120000;
+    const useFoldView =
+      !!viewEl &&
+      typeof LSJsonView !== 'undefined' &&
+      !!src &&
+      src.length <= HIGHLIGHT_MAX &&
+      validation.valid;
 
-    if (pre) {
-      if (
-        src &&
-        src.length <= HIGHLIGHT_MAX &&
-        validation.valid &&
-        typeof LSHighlighter !== 'undefined'
-      ) {
-        pre.innerHTML = LSHighlighter.highlightJson(src);
-        pre.hidden = false;
-        ta.classList.add('json-colorized');
-      } else {
+    if (useFoldView) {
+      if (pre) {
         pre.innerHTML = '';
         pre.hidden = true;
-        ta.classList.remove('json-colorized');
+      }
+      ta.classList.add('json-colorized', 'jv-source-hidden');
+      ta.classList.remove('json-plain');
+      if (stack) stack.classList.add('has-json-view');
+      if (!rawJsonView) {
+        rawJsonView = LSJsonView.mount(viewEl, src, { folds: true, highlight: true });
+      } else {
+        rawJsonView.update(src, true);
+      }
+      viewEl.hidden = false;
+    } else {
+      if (rawJsonView) {
+        rawJsonView.destroy();
+        rawJsonView = null;
+      }
+      if (viewEl) {
+        viewEl.innerHTML = '';
+        viewEl.hidden = true;
+      }
+      if (stack) stack.classList.remove('has-json-view');
+      ta.classList.remove('jv-source-hidden');
+
+      if (pre) {
+        if (
+          src &&
+          src.length <= HIGHLIGHT_MAX &&
+          validation.valid &&
+          typeof LSHighlighter !== 'undefined'
+        ) {
+          pre.innerHTML = LSHighlighter.highlightJson(src);
+          pre.hidden = false;
+          ta.classList.add('json-colorized');
+        } else {
+          pre.innerHTML = '';
+          pre.hidden = true;
+          ta.classList.remove('json-colorized');
+        }
       }
     }
 
@@ -553,10 +617,8 @@ const LSUI = (() => {
       .join('\n');
   }
 
-  function formatBodyHtml(bodyRaw, bodyValue, bodyValid) {
-    if (!bodyRaw && bodyValue == null) {
-      return '<div class="api-muted">No body</div>';
-    }
+  function resolveBodyText(bodyRaw, bodyValue, bodyValid) {
+    if (!bodyRaw && bodyValue == null) return '';
     let text = bodyRaw || '';
     if (bodyValid && bodyValue != null) {
       try {
@@ -565,14 +627,68 @@ const LSUI = (() => {
             ? LSFormatter.beautify(bodyValue, '2')
             : JSON.stringify(bodyValue, null, 2);
       } catch (_) {
-        text = bodyRaw;
+        text = bodyRaw || '';
       }
     }
+    return text;
+  }
+
+  function formatBodyHtml(bodyRaw, bodyValue, bodyValid, mountId) {
+    if (!bodyRaw && bodyValue == null) {
+      return '<div class="api-muted">No body</div>';
+    }
+    const text = resolveBodyText(bodyRaw, bodyValue, bodyValid);
+    const HIGHLIGHT_MAX =
+      typeof LSJsonView !== 'undefined' ? LSJsonView.HIGHLIGHT_MAX : 120000;
+
+    if (bodyValid && typeof LSJsonView !== 'undefined' && text.length <= HIGHLIGHT_MAX) {
+      return `<div class="api-json-view" id="${LSUtils.escapeHtml(mountId)}" data-foldable="1"></div>`;
+    }
+
     const html =
-      bodyValid && typeof LSHighlighter !== 'undefined'
+      bodyValid && typeof LSHighlighter !== 'undefined' && text.length <= HIGHLIGHT_MAX
         ? LSHighlighter.highlightJson(text)
         : LSUtils.escapeHtml(text);
     return `<pre class="api-body">${html}</pre>`;
+  }
+
+  function bindApiSectionToggles(root) {
+    if (!root) return;
+    root.querySelectorAll('.api-section-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const section = btn.closest('.api-fold-section');
+        if (!section) return;
+        const collapsed = section.classList.toggle('collapsed');
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        const icon = btn.querySelector('.api-fold-icon');
+        if (icon) icon.textContent = collapsed ? '▶' : '▼';
+      });
+    });
+  }
+
+  function mountApiBodyViews(detail, call) {
+    destroyApiJsonViews();
+    if (!detail || !call || typeof LSJsonView === 'undefined') return;
+
+    const pairs = [
+      {
+        id: 'api-jv-request',
+        text: resolveBodyText(call.request.bodyRaw, call.request.body, call.request.bodyValid),
+        valid: call.request.bodyValid
+      },
+      {
+        id: 'api-jv-response',
+        text: resolveBodyText(call.response.bodyRaw, call.response.body, call.response.bodyValid),
+        valid: call.response.bodyValid
+      }
+    ];
+
+    pairs.forEach((p) => {
+      const el = detail.querySelector('#' + p.id);
+      if (!el || !p.valid || !p.text) return;
+      const ctrl = LSJsonView.mount(el, p.text, { folds: true, highlight: true });
+      if (ctrl) apiJsonViews.push(ctrl);
+    });
   }
 
   function renderApiCalls(calls, activeIndex, onSelect) {
@@ -583,6 +699,8 @@ const LSUI = (() => {
 
     const items = Array.isArray(calls) ? calls : [];
     const target = itemsEl || list;
+
+    destroyApiJsonViews();
 
     if (!items.length) {
       target.innerHTML =
@@ -636,6 +754,11 @@ const LSUI = (() => {
           ? 'ok'
           : 'err';
 
+    const hasReqHeaders = Object.keys((call.request && call.request.headers) || {}).length > 0;
+    const hasResHeaders = Object.keys((call.response && call.response.headers) || {}).length > 0;
+    const hasReqBody = !!(call.request && (call.request.bodyRaw || call.request.body));
+    const hasResBody = !!(call.response && (call.response.bodyRaw || call.response.body));
+
     detail.innerHTML = `
       <div class="api-detail-header">
         <div class="api-detail-title">
@@ -653,25 +776,65 @@ const LSUI = (() => {
 
       <div class="api-detail-scroll">
         <div class="api-section">
-          <div class="api-section-title">Request headers</div>
-          <pre class="api-headers">${formatHeadersHtml(call.request.headers)}</pre>
-          <div class="api-section-title">Request body</div>
-          <div class="api-body-wrap">${formatBodyHtml(
-            call.request.bodyRaw,
-            call.request.body,
-            call.request.bodyValid
-          )}</div>
+          <div class="api-fold-section${hasReqHeaders ? '' : ' collapsed'}" data-section="req-headers">
+            <button type="button" class="api-section-toggle" aria-expanded="${hasReqHeaders ? 'true' : 'false'}">
+              <span class="api-fold-icon">${hasReqHeaders ? '▼' : '▶'}</span>
+              <span class="api-section-title">Request headers</span>
+            </button>
+            <div class="api-section-body">
+              <pre class="api-headers">${formatHeadersHtml(call.request.headers)}</pre>
+            </div>
+          </div>
+
+          <div class="api-fold-section" data-section="req-body">
+            <button type="button" class="api-section-toggle" aria-expanded="true">
+              <span class="api-fold-icon">▼</span>
+              <span class="api-section-title">Request body</span>
+            </button>
+            <div class="api-section-body">
+              <div class="api-body-wrap">${
+                hasReqBody
+                  ? formatBodyHtml(
+                      call.request.bodyRaw,
+                      call.request.body,
+                      call.request.bodyValid,
+                      'api-jv-request'
+                    )
+                  : '<div class="api-muted">No body</div>'
+              }</div>
+            </div>
+          </div>
         </div>
 
         <div class="api-section">
-          <div class="api-section-title">Response headers</div>
-          <pre class="api-headers">${formatHeadersHtml(call.response.headers)}</pre>
-          <div class="api-section-title">Response body</div>
-          <div class="api-body-wrap">${formatBodyHtml(
-            call.response.bodyRaw,
-            call.response.body,
-            call.response.bodyValid
-          )}</div>
+          <div class="api-fold-section${hasResHeaders ? '' : ' collapsed'}" data-section="res-headers">
+            <button type="button" class="api-section-toggle" aria-expanded="${hasResHeaders ? 'true' : 'false'}">
+              <span class="api-fold-icon">${hasResHeaders ? '▼' : '▶'}</span>
+              <span class="api-section-title">Response headers</span>
+            </button>
+            <div class="api-section-body">
+              <pre class="api-headers">${formatHeadersHtml(call.response.headers)}</pre>
+            </div>
+          </div>
+
+          <div class="api-fold-section" data-section="res-body">
+            <button type="button" class="api-section-toggle" aria-expanded="true">
+              <span class="api-fold-icon">▼</span>
+              <span class="api-section-title">Response body</span>
+            </button>
+            <div class="api-section-body">
+              <div class="api-body-wrap">${
+                hasResBody
+                  ? formatBodyHtml(
+                      call.response.bodyRaw,
+                      call.response.body,
+                      call.response.bodyValid,
+                      'api-jv-response'
+                    )
+                  : '<div class="api-muted">No body</div>'
+              }</div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -685,6 +848,8 @@ const LSUI = (() => {
       });
     }
 
+    bindApiSectionToggles(detail);
+    mountApiBodyViews(detail, call);
     syncApiHeaderActions(call);
   }
 
@@ -713,7 +878,6 @@ const LSUI = (() => {
     setStatus,
     setValidationBanner,
     renderBlockChips,
-    renderStats,
     renderHistory,
     toggleHistory,
     showReceipt,
@@ -724,7 +888,11 @@ const LSUI = (() => {
     setupRawScrollSync,
     highlightRawSearch,
     renderApiCalls,
-    syncApiHeaderActions
+    syncApiHeaderActions,
+    toggleFullView,
+    enterFullView,
+    exitFullView,
+    isFullView
   };
 })();
 

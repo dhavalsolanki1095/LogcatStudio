@@ -82,9 +82,6 @@ const LSApp = (() => {
     const validation = LSValidator.validate(text);
     LSUI.setValidationBanner(text ? validation : { skip: true });
 
-    const stats = LSValidator.statsForText(text);
-    LSUI.renderStats(stats);
-
     // Receipt detection
     state.receiptHtml = value != null ? LSParser.findReceiptHtml(value) : null;
     LSUI.setReceiptButtonVisible(!!state.receiptHtml);
@@ -748,6 +745,7 @@ const LSApp = (() => {
 
     document.getElementById('btn-expand-all')?.addEventListener('click', () => LSTree.expandAll());
     document.getElementById('btn-collapse-all')?.addEventListener('click', () => LSTree.collapseAll());
+    document.getElementById('btn-full-view')?.addEventListener('click', () => LSUI.toggleFullView());
     bindApiDetailActions();
 
     document.getElementById('btn-receipt-preview')?.addEventListener('click', () => {
@@ -781,9 +779,6 @@ const LSApp = (() => {
     document.querySelectorAll('.output-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
         LSUI.switchTab(tab.dataset.tab);
-        if (tab.dataset.tab === 'stats') {
-          LSUI.renderStats(LSValidator.statsForText(state.formatted || ''));
-        }
         if (tab.dataset.tab === 'api') {
           refreshApiPanel();
         }
@@ -965,6 +960,10 @@ const LSApp = (() => {
       }
 
       if (e.key === 'Escape') {
+        if (LSUI.isFullView && LSUI.isFullView()) {
+          LSUI.exitFullView();
+          return;
+        }
         LSUI.closeModal();
         LSUI.toggleHistory(false);
         LSUI.closeMenus();
@@ -986,7 +985,6 @@ const LSApp = (() => {
           state.formatted = text;
           if (rawEl()) LSUI.renderRawOutput(text);
           LSUI.setValidationBanner(LSValidator.validate(text));
-          LSUI.renderStats(LSValidator.statsForText(text));
           state.receiptHtml = LSParser.findReceiptHtml(value);
           LSUI.setReceiptButtonVisible(!!state.receiptHtml);
           updateStatusBar();
@@ -1009,7 +1007,6 @@ const LSApp = (() => {
     if (sel) sel.value = indent;
 
     LSCompare.renderDiff(document.getElementById('compare-diff'), null);
-    LSUI.renderStats(null);
     LSUI.setReceiptButtonVisible(false);
     updateStatusBar();
   }

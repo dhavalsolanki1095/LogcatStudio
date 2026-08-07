@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#1e1e1e" />
   <title>Logcat Studio</title>
   <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg" />
-  <link rel="stylesheet" href="css/style.css?v=20260806m" />
-  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260807d" />
+  <link rel="stylesheet" href="css/theme.css?v=20260807d" />
 </head>
 <body class="theme-dark">
   <div id="app">
@@ -140,20 +140,30 @@ Supports:
             <button type="button" class="output-tab" data-tab="tree" role="tab">Tree</button>
             <button type="button" class="output-tab" data-tab="api" role="tab">API Calls</button>
             <button type="button" class="output-tab" data-tab="compare" role="tab">Compare</button>
-            <button type="button" class="output-tab" data-tab="stats" role="tab">Statistics</button>
           </div>
           <div class="pane-header-actions">
             <div id="api-header-actions" class="api-header-actions" hidden role="toolbar" aria-label="API detail actions">
-              <button type="button" class="pane-header-btn api-btn-primary" id="btn-api-copy-full" title="Copy URL, request and response for sharing">Copy full details</button>
-              <button type="button" class="pane-header-btn" id="btn-api-copy-url" title="Copy request URL">Copy URL</button>
-              <button type="button" class="pane-header-btn" id="btn-api-copy-request" title="Copy request body" disabled>Copy request body</button>
-              <button type="button" class="pane-header-btn" id="btn-api-copy-response" title="Copy response body" disabled>Copy response body</button>
+              <button type="button" class="pane-header-btn api-btn-primary" id="btn-api-copy-full" title="Copy URL, request and response for sharing">
+                <span class="api-btn-icon" aria-hidden="true">📋</span> Full details
+              </button>
+              <button type="button" class="pane-header-btn" id="btn-api-copy-url" title="Copy request URL">
+                <span class="api-btn-icon" aria-hidden="true">📋</span> URL
+              </button>
+              <button type="button" class="pane-header-btn" id="btn-api-copy-request" title="Copy request body" disabled>
+                <span class="api-btn-icon" aria-hidden="true">📋</span> Request body
+              </button>
+              <button type="button" class="pane-header-btn" id="btn-api-copy-response" title="Copy response body" disabled>
+                <span class="api-btn-icon" aria-hidden="true">📋</span> Response body
+              </button>
               <button type="button" class="pane-header-btn" id="btn-api-use-response-json" title="Open response JSON in Raw tab" disabled>Open response in Raw</button>
             </div>
             <div id="tree-header-actions" class="tree-header-actions" hidden>
               <button type="button" class="pane-header-btn" id="btn-expand-all" title="Expand all tree nodes">Expand</button>
               <button type="button" class="pane-header-btn" id="btn-collapse-all" title="Collapse all tree nodes">Collapse</button>
             </div>
+            <button type="button" class="pane-header-btn btn-full-view" id="btn-full-view" title="Open current tab in full view">
+              <span class="btn-label-full">Full view</span>
+            </button>
           </div>
         </div>
 
@@ -184,6 +194,7 @@ Supports:
               <!-- Raw -->
               <div id="tab-raw" class="tab-panel active" role="tabpanel">
                 <div class="json-editor-stack">
+                  <div id="raw-json-view" class="json-view" hidden aria-label="Formatted JSON with folds"></div>
                   <pre id="raw-highlight" class="json-highlight" aria-hidden="true"></pre>
                   <textarea id="raw-output" class="editor-area" spellcheck="false" autocomplete="off" readonly placeholder="Formatted JSON appears here…"></textarea>
                 </div>
@@ -229,11 +240,6 @@ Supports:
                 </section>
               </div>
             </div>
-          </div>
-
-          <!-- Stats -->
-          <div id="tab-stats" class="tab-panel" role="tabpanel">
-            <div id="stats-container"></div>
           </div>
 
           <!-- History popover -->
@@ -321,10 +327,11 @@ Supports:
   <script src="js/api-extractor.js?v=20260806n"></script>
   <script src="js/formatter.js"></script>
   <script src="js/highlighter.js"></script>
-  <script src="js/validator.js"></script>
+  <script src="js/json-view.js?v=20260807b"></script>
+  <script src="js/validator.js?v=20260807c"></script>
   <script src="js/tree.js"></script>
   <script src="js/compare.js"></script>
-  <script src="js/ui.js?v=20260806n"></script>
-  <script src="js/app.js?v=20260806n"></script>
+  <script src="js/ui.js?v=20260807c"></script>
+  <script src="js/app.js?v=20260807c"></script>
 </body>
 </html>
