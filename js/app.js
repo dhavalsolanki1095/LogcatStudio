@@ -57,7 +57,10 @@ const LSApp = (() => {
             )
           )
         : '0',
-      'status-size': text ? LSUtils.formatBytes(new Blob([text]).size) : '0 B',
+      'status-size': (() => {
+        const src = state.inputRaw || text;
+        return src ? LSUtils.formatBytes(new Blob([src]).size) : '0 B';
+      })(),
       'status-lines': state.inputRaw
         ? String(LSUtils.countLines(state.inputRaw))
         : text
@@ -1035,10 +1038,14 @@ const LSApp = (() => {
       input.addEventListener('paste', (e) => {
         try {
           const clip = e.clipboardData && e.clipboardData.getData('text');
-          if (clip && clip.length >= LARGE_PASTE) {
-            e.preventDefault();
-            processInput(clip, { fromPaste: true });
-            return;
+          if (clip) {
+            const looksStudio =
+              clip.charAt(0) === '{' && clip.indexOf('"logcatMessages"') >= 0;
+            if (clip.length >= LARGE_PASTE || looksStudio) {
+              e.preventDefault();
+              processInput(clip, { fromPaste: true });
+              return;
+            }
           }
         } catch (_) {
           /* fall through */

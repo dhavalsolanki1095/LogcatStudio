@@ -33,6 +33,19 @@ const LSApiExtractor = (() => {
   }
 
   /**
+   * Normalize a line to OkHttp/message payload.
+   * Studio .logcat expand already yields bare messages; AS UI paste still has
+   * time/pid/tag/package columns — strip those before matching --> / <--.
+   */
+  function lineMessage(line) {
+    let msg = String(line == null ? '' : line);
+    if (typeof LSParser !== 'undefined' && LSParser.stripLogPrefix) {
+      msg = LSParser.stripLogPrefix(msg);
+    }
+    return decodeEscapes(String(msg || '').trim());
+  }
+
+  /**
    * Convert any input into ordered message lines (message text only).
    */
   function toMessageLines(raw) {
@@ -43,7 +56,7 @@ const LSApiExtractor = (() => {
     if (typeof LSParser !== 'undefined' && LSParser.expandStudioLogcatExport) {
       const expanded = LSParser.expandStudioLogcatExport(text);
       if (expanded && expanded.text) {
-        return expanded.text.split(/\r\n|\r|\n/);
+        return expanded.text.split(/\r\n|\r|\n/).map(lineMessage);
       }
     }
 
@@ -53,19 +66,15 @@ const LSApiExtractor = (() => {
         const parsed = JSON.parse(text);
         if (parsed && Array.isArray(parsed.logcatMessages)) {
           return parsed.logcatMessages
-            .map((m) => decodeEscapes((m && m.message) || '').trim())
-            .filter((m) => m !== undefined);
+            .map((m) => lineMessage((m && m.message) || ''))
+            .filter((m) => m !== undefined && m !== '');
         }
       } catch (_) {
         /* fall through to plain lines */
       }
     }
 
-    return text.split(/\r\n|\r|\n/).map((line) => {
-      const msg =
-        typeof LSParser !== 'undefined' ? LSParser.stripLogPrefix(line) : line;
-      return decodeEscapes(String(msg || '').trim());
-    });
+    return text.split(/\r\n|\r|\n/).map(lineMessage);
   }
 
   function tryParseJsonBody(parts) {
@@ -164,7 +173,7 @@ const LSApiExtractor = (() => {
 
     for (let i = 0; i < lines.length; i += 1) {
       if (calls.length >= maxCalls) break;
-      const msg = lines[i];
+      const msg = lineMessage(lines[i]);
       if (msg === '') {
         // blank line often separates headers from body in OkHttp
         continue;
