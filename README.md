@@ -89,8 +89,7 @@ LogcatStudio/
 └── samples/
     ├── sample-logcat.txt
     ├── sample-request.txt
-    ├── sample-response.txt
-    └── sample-json.json
+    └── sample-response.txt
 ```
 
 ## GitHub Pages

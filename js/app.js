@@ -692,8 +692,7 @@ com.example.app1                    {"format":5,"ok":true}
       messageOnly: 'samples/sample-message-only-split.txt',
       api: 'samples/sample-api-calls.txt',
       request: 'samples/sample-request.txt',
-      response: 'samples/sample-response.txt',
-      json: 'samples/sample-json.json'
+      response: 'samples/sample-response.txt'
     };
     const url = map[name];
     if (!url) return;
@@ -906,10 +905,6 @@ com.example.app1                    {"format":5,"ok":true}
     });
     document.getElementById('btn-sample-response')?.addEventListener('click', () => {
       loadSample('response');
-      LSUI.closeMenus();
-    });
-    document.getElementById('btn-sample-json')?.addEventListener('click', () => {
-      loadSample('json');
       LSUI.closeMenus();
     });
 
